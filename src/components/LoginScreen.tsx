@@ -143,7 +143,7 @@ export function LoginScreen() {
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     className="w-full bg-[#0B0C10] text-white pl-12 pr-4 py-4 rounded-xl border border-gray-700 focus:border-[#4C6EF5] focus:outline-none transition-colors"
-                    placeholder="John Pork"
+                    placeholder="John Doe"
                     required={isSignUp}
                   />
                 </div>
@@ -160,8 +160,8 @@ export function LoginScreen() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-[#0B0C10] text-purple pl-12 pr-4 py-4 rounded-xl border border-gray-700 focus:border-[#4C6EF5] focus:outline-none transition-colors"
-                  placeholder="you@example.com"
+                  className="w-full bg-[#0B0C10] text-white pl-12 pr-4 py-4 rounded-xl border border-gray-700 focus:border-[#4C6EF5] focus:outline-none transition-colors"
+                  placeholder="yourname@example.com"
                   required
                 />
               </div>
