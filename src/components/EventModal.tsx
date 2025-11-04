@@ -67,14 +67,23 @@ export function EventModal({ event, isOpen, onClose }: EventModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center px-4 animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn"
+      role="dialog"
+      aria-modal="true"
       onClick={onClose}
     >
+      {/* dark blur backdrop */}
       <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
-
+  
+      {/* centered modal */}
       <div
-        className="relative bg-[#1a1d29] rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-slideUp border border-gray-800"
+        className="relative z-10 w-full max-w-2xl overflow-hidden rounded-3xl border border-gray-800 bg-[#1a1d29] shadow-2xl animate-slideUp"
         onClick={(e) => e.stopPropagation()}
+        style={{
+          maxHeight: "90vh",
+          display: "flex",
+          flexDirection: "column",
+        }}
       >
         <button
           onClick={onClose}
