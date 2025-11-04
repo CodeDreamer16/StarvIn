@@ -50,10 +50,30 @@ export function FeedTab() {
 
   // Load events + user data
   useEffect(() => {
-    loadEventsWithPreferences();
-    loadUserData();
+    if (user) {
+      loadEventsWithPreferences();
+      loadUserData();
+    }
   }, [user]);
 
+  // Re-fetch when preferences change (triggered after EditPreferences save)
+  useEffect(() => {
+    const channel = supabase
+      .channel('realtime-prefs')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_preferences', filter: `user_id=eq.${user?.id}` },
+        () => loadEventsWithPreferences()
+      )
+      .subscribe();
+  
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+
+  
   // Setup intersection observer for fade-in
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
