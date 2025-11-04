@@ -110,7 +110,7 @@ export function FeedTab() {
   
       // Reset animations for fade-in again
       setVisible(new Set());
-    }, 400); // ← longer delay ensures DOM and layout are ready
+    }, 200); // ← longer delay ensures DOM and layout are ready
   
     return () => clearTimeout(scrollTimeout);
   }, [page, events]);
