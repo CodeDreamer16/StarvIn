@@ -103,63 +103,49 @@ export function FeedTab() {
 
   // 🧠 Improved filtering logic
   const loadEventsWithPreferences = async () => {
+    if (!user) return;
+    setLoading(true);
+  
     try {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      // 1️⃣ Fetch user preferences
-      const { data: preferences, error: prefError } = await supabase
+      // Get user's interests
+      const { data: prefs, error: prefError } = await supabase
         .from("user_preferences")
         .select("interest_name")
         .eq("user_id", user.id);
-
+  
       if (prefError) throw prefError;
-
-      const userInterests =
-        preferences?.map((p) => p.interest_name.toLowerCase()) || [];
-      console.log("User interests:", userInterests);
-
-      // 2️⃣ Fetch all events
+  
+      if (!prefs || prefs.length === 0) {
+        setEvents([]);
+        setLoading(false);
+        return;
+      }
+  
+      // Collect all interest names
+      const interests = prefs.map((p) => p.interest_name.trim().toLowerCase());
+  
+      // Load all events
       const { data: allEvents, error: eventsError } = await supabase
         .from("events")
         .select("*")
         .order("date", { ascending: true });
-
+  
       if (eventsError) throw eventsError;
-
-      // 3️⃣ Filter events based on user preferences
-      let filteredEvents = allEvents || [];
-
-      if (userInterests.length > 0) {
-        filteredEvents = filteredEvents.filter((event) => {
-          const searchText = `
-            ${event.title || ""}
-            ${event.description || ""}
-            ${event.organization || ""}
-            ${(event.tags || []).join(" ")}
-            ${event.event_type || ""}
-          `.toLowerCase();
-
-          return userInterests.some((interest) =>
-            searchText.includes(interest.toLowerCase())
-          );
-        });
-      }
-
-      console.log(`Matched ${filteredEvents.length} events`);
-      setEvents(filteredEvents);
-      if (filteredEvents.length === 0) {
-        console.warn("No matching events found for user preferences.");
-      }
+  
+      // Filter events by matching category case-insensitively
+      const matched = allEvents.filter((event) => {
+        const type = event.event_type?.trim().toLowerCase();
+        return interests.some((interest) => type.includes(interest));
+      });
+  
+      setEvents(matched);
     } catch (error) {
-      console.error("Error loading events:", error);
-      setEvents([]);
+      console.error("Error loading events with preferences:", error);
     } finally {
       setLoading(false);
     }
   };
+
 
   const loadUserData = async () => {
     if (!user) return;
