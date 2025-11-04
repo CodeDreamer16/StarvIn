@@ -164,17 +164,11 @@ export function FeedTab() {
   /** Smooth scroll to top when paging */
   useEffect(() => {
     if (!containerRef.current) return;
-  
-    // Wait for React to render new page content before scrolling
-    const scrollTimeout = setTimeout(() => {
-      containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-      // Reset fade-in animations
-      setVisibleCards(new Set());
-    }, 150); // short delay ensures DOM is ready
-  
-    return () => clearTimeout(scrollTimeout);
-  }, [currentPage, events]);
-
+    const el = containerRef.current;
+    el.scrollTo({ top: 0, behavior: 'smooth' });
+    // reset animation flags for fresh fade-in on each page
+    setVisibleCards(new Set());
+  }, [currentPage]);
 
   const loadEventsWithPreferences = async () => {
     setLoading(true);
