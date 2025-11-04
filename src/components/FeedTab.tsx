@@ -53,11 +53,22 @@ export function FeedTab() {
   const { user } = useAuth();
 
   const scrollToTop = () => {
-    const feedContainer = document.querySelector('.feed-scroll-container');
-    if (feedContainer) {
-      feedContainer.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    try {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      });
+  
+      // For nested scroll containers (failsafe)
+      const containers = document.querySelectorAll('.feed-scroll-container');
+      containers.forEach((c) => {
+        c.scrollTo({
+          top: 0,
+          behavior: 'smooth',
+        });
+      });
+    } catch (err) {
+      console.error('scrollToTop error:', err);
     }
   };
 
@@ -371,30 +382,34 @@ export function FeedTab() {
               <p className="text-gray-400 text-sm">
                 Page {currentPage + 1} of {totalPages || 1}
               </p>
-              <div className="flex gap-3">
-                {currentPage > 0 && (
-                  <button
-                    onClick={() => {
-                      setCurrentPage((p) => p - 1);
-                      scrollToTop();
-                    }}
-
-                    className="rounded-xl bg-[#1a1d29] px-6 py-3 font-semibold text-white border border-gray-700 hover:border-gray-500 transition-colors"
-                  >
-                    Previous Page
-                  </button>
-                )}
-                {currentPage + 1 < totalPages && (
-                  <button
-                    onClick={() => {
-                      setCurrentPage((p) => p + 1);
-                      scrollToTop();
-                    }}
-                    className="rounded-xl bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] px-8 py-3 font-semibold text-white transition-opacity hover:opacity-90"
-                  >
-                    Next Page
-                  </button>
-                )}
+              <div className="flex flex-col items-center justify-center gap-3 pt-6 pb-8">
+                <p className="text-gray-400 text-sm">
+                  Page {currentPage + 1} of {totalPages || 1}
+                </p>
+                <div className="flex gap-3">
+                  {currentPage > 0 && (
+                    <button
+                      onClick={() => {
+                        setCurrentPage((p) => p - 1);
+                        setTimeout(scrollToTop, 100); // ensure state updates first
+                      }}
+                      className="rounded-xl bg-[#1a1d29] px-6 py-3 font-semibold text-white border border-gray-700 hover:border-gray-500 transition-colors"
+                    >
+                      Previous Page
+                    </button>
+                  )}
+                  {currentPage + 1 < totalPages && (
+                    <button
+                      onClick={() => {
+                        setCurrentPage((p) => p + 1);
+                        setTimeout(scrollToTop, 100);
+                      }}
+                      className="rounded-xl bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] px-8 py-3 font-semibold text-white transition-opacity hover:opacity-90"
+                    >
+                      Next Page
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
