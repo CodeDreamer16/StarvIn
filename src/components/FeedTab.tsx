@@ -328,7 +328,7 @@ export function FeedTab() {
                   onClick={() => setCurrentPage((p) => p + 1)}
                   className="rounded-xl bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] px-8 py-3 font-semibold text-white transition-opacity hover:opacity-90"
                 >
-                  Load More
+                  Next Page
                 </button>
               )}
             </div>
