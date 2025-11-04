@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Calendar, MapPin, Award, Bookmark, Send, Eye } from 'lucide-react';
+import { Calendar, MapPin, Award, Bookmark, Send, CalendarPlus, Eye } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { EventModal } from './EventModal';
@@ -27,17 +27,6 @@ interface Application {
   event_id: string;
 }
 
-const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  'Wellness & Mental Health': ['wellness', 'mental health', 'therapy', 'yoga', 'stress', 'anxiety', 'support group', 'animal therapy', 'mindfulness', 'meditation', 'walk', 'paws', 'health'],
-  'Career & Professional Development': ['career', 'job', 'linkedin', 'internship', 'resume', 'professional', 'networking', 'employment', 'headshot', 'negotiation', 'industry'],
-  'Workshops & Skill Building': ['workshop', 'skill', 'training', 'tutorial', 'learn', 'apa', 'citation', 'grad breakfast', 'skillsets'],
-  'Social & Community Events': ['social', 'community', 'meetup', 'connect', 'party', 'event', 'gathering', 'contemplative', 'after the party'],
-  'Arts & Creative Activities': ['art', 'creative', 'hive', 'studio', 'crochet', 'craft', 'artistic', 'making'],
-  'Academic Support & Research': ['academic', 'research', 'library', 'phd', 'thesis', 'study', 'graduate', 'masters', 'dissertation'],
-  'International Student Services': ['international', 'immigration', 'iss', 'visa', 'study permit', 'caq', 'legal', 'document'],
-  'Leadership & Personal Growth': ['leadership', 'leader', 'personal growth', 'emerging leaders', 'development', 'mindset', 'imposter syndrome'],
-};
-
 export function FeedTab() {
   const [events, setEvents] = useState<Event[]>([]);
   const [allEvents, setAllEvents] = useState<Event[]>([]);
@@ -52,34 +41,23 @@ export function FeedTab() {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const { user } = useAuth();
 
+  // ✅ Smooth scroll helper
   const scrollToTop = () => {
-    try {
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth',
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      document.querySelectorAll('.feed-scroll-container').forEach((el) => {
+        el.scrollTo({ top: 0, behavior: 'smooth' });
       });
-  
-      // For nested scroll containers (failsafe)
-      const containers = document.querySelectorAll('.feed-scroll-container');
-      containers.forEach((c) => {
-        c.scrollTo({
-          top: 0,
-          behavior: 'smooth',
-        });
-      });
-    } catch (err) {
-      console.error('scrollToTop error:', err);
-    }
+    }, 100);
   };
 
-  
-
   useEffect(() => {
-    loadEventsWithPreferences();
+    loadEvents();
     loadUserData();
-  }, [user, currentPage]);
+  }, [user]);
 
   useEffect(() => {
+    // ✅ Set up fade-in observer
     observerRef.current = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -91,12 +69,11 @@ export function FeedTab() {
       { threshold: 0.1, rootMargin: '50px' }
     );
 
-    return () => {
-      if (observerRef.current) observerRef.current.disconnect();
-    };
+    return () => observerRef.current?.disconnect();
   }, []);
 
   useEffect(() => {
+    // Observe each event card for animation
     if (observerRef.current) {
       document.querySelectorAll('[data-event-card]').forEach((card) => {
         observerRef.current?.observe(card);
@@ -104,49 +81,19 @@ export function FeedTab() {
     }
   }, [events]);
 
-  const matchesKeywords = (event: Event, interests: string[]): boolean => {
-    const searchText = `${event.title} ${event.description || ''} ${event.event_type || ''} ${event.organization || ''}`.toLowerCase();
-    return interests.some((interest) => {
-      const keywords = CATEGORY_KEYWORDS[interest] || [];
-      return keywords.some((keyword) => searchText.includes(keyword.toLowerCase()));
-    });
-  };
-
-  const loadEventsWithPreferences = async () => {
+  const loadEvents = async () => {
     try {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      const { data: preferences, error: prefError } = await supabase
-        .from('user_preferences')
-        .select('interest_name')
-        .eq('user_id', user.id);
-
-      if (prefError) throw prefError;
-
-      const userInterests = preferences?.map((p) => p.interest_name) || [];
-
-      const { data: allEvents, error: eventsError } = await supabase
+      const { data, error } = await supabase
         .from('events')
-        .select('*, link')
+        .select('*')
         .order('date', { ascending: true });
 
-      if (eventsError) throw eventsError;
+      if (error) throw error;
 
-      let filteredEvents = allEvents || [];
-      if (userInterests.length > 0) {
-        filteredEvents = filteredEvents.filter((event) => matchesKeywords(event, userInterests));
-      }
-
-      const startIndex = currentPage * eventsPerPage;
-      const paginatedEvents = filteredEvents.slice(startIndex, startIndex + eventsPerPage);
-      setAllEvents(filteredEvents);
-      setEvents(paginatedEvents);
-    } catch (error) {
-      console.error('Error loading events:', error);
-      setEvents([]);
+      setAllEvents(data || []);
+      setEvents((data || []).slice(0, eventsPerPage));
+    } catch (err) {
+      console.error('Error loading events:', err);
     } finally {
       setLoading(false);
     }
@@ -161,12 +108,11 @@ export function FeedTab() {
         supabase.from('applications').select('event_id').eq('user_id', user.id),
       ]);
 
-      if (savedResponse.data) {
+      if (savedResponse.data)
         setSavedEvents(new Set(savedResponse.data.map((s: SavedEvent) => s.event_id)));
-      }
-      if (appliedResponse.data) {
+
+      if (appliedResponse.data)
         setAppliedEvents(new Set(appliedResponse.data.map((a: Application) => a.event_id)));
-      }
     } catch (error) {
       console.error('Error loading user data:', error);
     }
@@ -179,9 +125,9 @@ export function FeedTab() {
       if (savedEvents.has(eventId)) {
         await supabase.from('saved_events').delete().eq('user_id', user.id).eq('event_id', eventId);
         setSavedEvents((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(eventId);
-          return newSet;
+          const next = new Set(prev);
+          next.delete(eventId);
+          return next;
         });
       } else {
         await supabase.from('saved_events').insert({ user_id: user.id, event_id: eventId });
@@ -195,39 +141,49 @@ export function FeedTab() {
   const addToGoogleCalendar = (event: Event) => {
     const eventDate = new Date(event.date);
     const endDate = new Date(eventDate.getTime() + 2 * 60 * 60 * 1000);
-
-    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
       event.title
     )}&dates=${eventDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z/${endDate
       .toISOString()
       .replace(/[-:]/g, '')
-      .split('.')[0]}Z&details=${encodeURIComponent(
-      event.description
-    )}&location=${encodeURIComponent(event.location)}`;
-
-    window.open(calendarUrl, '_blank');
+      .split('.')[0]}Z&details=${encodeURIComponent(event.description)}&location=${encodeURIComponent(
+      event.location
+    )}`;
+    window.open(url, '_blank');
   };
 
   const handleApply = async (eventId: string, event: Event) => {
     if (!user || appliedEvents.has(eventId)) return;
-
     try {
       await supabase.from('applications').insert({
         user_id: user.id,
         event_id: eventId,
         status: 'applied',
       });
-
       setAppliedEvents((prev) => new Set(prev).add(eventId));
       addToGoogleCalendar(event);
     } catch (error) {
-      console.error('Error applying to event:', error);
+      console.error('Error applying:', error);
     }
   };
 
+  const totalPages = Math.ceil(allEvents.length / eventsPerPage);
+
+  const goToPage = (newPage: number) => {
+    const start = newPage * eventsPerPage;
+    const end = start + eventsPerPage;
+    setEvents(allEvents.slice(start, end));
+    setCurrentPage(newPage);
+    scrollToTop();
+  };
+
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const d = new Date(dateString);
+    return d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
   };
 
   const openModal = (event: Event) => {
@@ -240,15 +196,12 @@ export function FeedTab() {
     setTimeout(() => setSelectedEvent(null), 300);
   };
 
-  const totalPages = Math.ceil(allEvents.length / eventsPerPage);
-
-  if (loading) {
+  if (loading)
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-white">Loading events...</div>
+        <p className="text-gray-400">Loading events...</p>
       </div>
     );
-  }
 
   return (
     <>
@@ -258,18 +211,13 @@ export function FeedTab() {
           <p className="text-gray-400">Find events that match your interests</p>
         </div>
 
-        {events.length === 0 && !loading ? (
+        {events.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 px-8">
-            <p className="text-gray-400 text-center mb-4">
-              No upcoming events match your interests right now.
-            </p>
-            <p className="text-gray-500 text-sm text-center">
-              Try updating your preferences to discover more events!
-            </p>
+            <p className="text-gray-400 mb-4">No events found.</p>
           </div>
         ) : (
-          <div className="px-4 space-y-4 pb-4">
-            {events.map((event, index) => {
+          <div className="px-4 space-y-4 pb-4 transition-all duration-300 ease-out">
+            {events.map((event, idx) => {
               const isSaved = savedEvents.has(event.id);
               const isApplied = appliedEvents.has(event.id);
               const isVisible = visibleCards.has(`event-${event.id}`);
@@ -279,10 +227,10 @@ export function FeedTab() {
                   key={event.id}
                   id={`event-${event.id}`}
                   data-event-card
-                  className={`bg-[#1a1d29] rounded-3xl overflow-hidden border border-gray-800 hover:border-gray-700 transition-all duration-500 ${
-                    isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+                  className={`bg-[#1a1d29] rounded-3xl overflow-hidden border border-gray-800 hover:border-gray-700 transition-all duration-700 transform ${
+                    isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
                   }`}
-                  style={{ transitionDelay: `${index * 50}ms` }}
+                  style={{ transitionDelay: `${idx * 50}ms` }}
                 >
                   <div
                     className="h-48 bg-cover bg-center relative"
@@ -290,60 +238,41 @@ export function FeedTab() {
                       backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.6)), url(${event.image_url})`,
                     }}
                   >
-                    <div className="absolute top-4 left-4">
-                      <span className="bg-[#4C6EF5] text-white px-3 py-1 rounded-full text-xs font-semibold">
-                        {event.event_type}
-                      </span>
-                    </div>
                     <button
                       onClick={() => handleSave(event.id)}
-                      className="absolute top-4 right-4 bg-black/50 backdrop-blur-sm p-2 rounded-full hover:bg-black/70 transition-colors"
+                      className="absolute top-4 right-4 bg-black/50 p-2 rounded-full hover:bg-black/70 transition-colors"
                     >
                       <Bookmark
-                        className={`w-5 h-5 ${isSaved ? 'fill-[#4C6EF5] text-[#4C6EF5]' : 'text-white'}`}
+                        className={`w-5 h-5 ${
+                          isSaved ? 'fill-[#4C6EF5] text-[#4C6EF5]' : 'text-white'
+                        }`}
                       />
                     </button>
                   </div>
 
                   <div className="p-5 space-y-3">
-                    <div>
-                      <h3 className="text-xl font-bold text-white mb-1">{event.title}</h3>
-                      <p className="text-gray-400 text-sm">{event.organization}</p>
-                    </div>
-
+                    <h3 className="text-xl font-bold text-white">{event.title}</h3>
+                    <p className="text-gray-400 text-sm">{event.organization}</p>
                     <p className="text-gray-300 text-sm line-clamp-2">{event.description}</p>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-gray-400 text-sm">
+                    <div className="space-y-1 text-sm text-gray-400">
+                      <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4" />
                         <span>{formatDate(event.date)}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-gray-400 text-sm">
+                      <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4" />
                         <span>{event.location}</span>
                       </div>
                       {event.prize && (
-                        <div className="flex items-center gap-2 text-[#4C6EF5] text-sm font-medium">
+                        <div className="flex items-center gap-2 text-[#4C6EF5] font-medium">
                           <Award className="w-4 h-4" />
                           <span>{event.prize}</span>
                         </div>
                       )}
                     </div>
 
-                    {event.tags && event.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {event.tags.slice(0, 3).map((tag, idx) => (
-                          <span
-                            key={idx}
-                            className="bg-gray-800 text-gray-300 px-3 py-1 rounded-full text-xs"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="space-y-2">
+                    <div className="space-y-2 pt-2">
                       <button
                         onClick={() => openModal(event)}
                         className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white hover:opacity-90 transition-opacity"
@@ -353,17 +282,22 @@ export function FeedTab() {
                       </button>
                       <div className="flex gap-2">
                         <button
+                          onClick={() => addToGoogleCalendar(event)}
+                          className="flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 bg-[#0B0C10] text-white border border-gray-700 hover:border-gray-500 transition-colors"
+                        >
+                          <CalendarPlus className="w-4 h-4" />
+                          Add to Calendar
+                        </button>
+                        <button
                           onClick={() => handleApply(event.id, event)}
                           disabled={isApplied}
                           className={`flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
                             isApplied
                               ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                              : 'bg-[#0B0C10] text-white border border-gray-700 hover:border-gray-600'
+                              : 'bg-[#0B0C10] text-white border border-gray-700 hover:border-gray-500'
                           }`}
                         >
-                          {isApplied ? (
-                            'Applied'
-                          ) : (
+                          {isApplied ? 'Applied' : (
                             <>
                               <Send className="w-4 h-4" />
                               Apply
@@ -377,39 +311,28 @@ export function FeedTab() {
               );
             })}
 
-            {/* Pagination */}
-            <div className="flex flex-col items-center justify-center gap-3 pt-6 pb-8">
+            {/* ✅ Clean pagination */}
+            <div className="flex flex-col items-center justify-center gap-3 pt-8 pb-10">
               <p className="text-gray-400 text-sm">
                 Page {currentPage + 1} of {totalPages || 1}
               </p>
-              <div className="flex flex-col items-center justify-center gap-3 pt-6 pb-8">
-                <p className="text-gray-400 text-sm">
-                  Page {currentPage + 1} of {totalPages || 1}
-                </p>
-                <div className="flex gap-3">
-                  {currentPage > 0 && (
-                    <button
-                      onClick={() => {
-                        setCurrentPage((p) => p - 1);
-                        setTimeout(scrollToTop, 100); // ensure state updates first
-                      }}
-                      className="rounded-xl bg-[#1a1d29] px-6 py-3 font-semibold text-white border border-gray-700 hover:border-gray-500 transition-colors"
-                    >
-                      Previous Page
-                    </button>
-                  )}
-                  {currentPage + 1 < totalPages && (
-                    <button
-                      onClick={() => {
-                        setCurrentPage((p) => p + 1);
-                        setTimeout(scrollToTop, 100);
-                      }}
-                      className="rounded-xl bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] px-8 py-3 font-semibold text-white transition-opacity hover:opacity-90"
-                    >
-                      Next Page
-                    </button>
-                  )}
-                </div>
+              <div className="flex gap-3">
+                {currentPage > 0 && (
+                  <button
+                    onClick={() => goToPage(currentPage - 1)}
+                    className="rounded-xl bg-[#1a1d29] px-6 py-3 font-semibold text-white border border-gray-700 hover:border-gray-500 transition-colors"
+                  >
+                    Previous Page
+                  </button>
+                )}
+                {currentPage + 1 < totalPages && (
+                  <button
+                    onClick={() => goToPage(currentPage + 1)}
+                    className="rounded-xl bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] px-8 py-3 font-semibold text-white transition-opacity hover:opacity-90"
+                  >
+                    Next Page
+                  </button>
+                )}
               </div>
             </div>
           </div>
