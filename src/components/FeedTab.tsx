@@ -1,464 +1,447 @@
-import { useState, useEffect, useRef } from "react";
-import {
-  Calendar,
-  MapPin,
-  Award,
-  Bookmark,
-  Send,
-  CalendarPlus,
-  Eye,
-} from "lucide-react";
-import { supabase } from "../lib/supabase";
-import { useAuth } from "../contexts/AuthContext";
-import { EventModal } from "./EventModal";
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Calendar, MapPin, Award, Bookmark, Send, Eye } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { EventModal } from './EventModal';
 
 interface Event {
   id: string;
   title: string;
   description: string;
-  event_type: string;
-  organization: string;
-  location: string;
-  date: string;
+  event_type: string | null;
+  organization: string | null;
+  location: string | null;
+  date: string;                 // ISO string in DB
   deadline: string | null;
-  image_url: string;
-  prize: string;
-  tags: string[];
-  link?: string;
+  image_url: string | null;
+  prize: string | null;
+  tags: string[] | null;
+  link?: string | null;
 }
 
-interface SavedEvent {
-  event_id: string;
-}
+interface SavedEvent { event_id: string }
+interface Application { event_id: string }
 
-interface Application {
-  event_id: string;
-}
+/** 🔎 Interest → keyword map (expandable) */
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  'Wellness & Mental Health': [
+    'wellness','mental','therapy','yoga','stress','anxiety','support group','mindfulness','meditation','health','well-being','wellbeing','care'
+  ],
+  'Career & Professional Development': [
+    'career','job','internship','resume','cv','linkedin','recruit','network','networking','employer','interview','negotiation','workshop career'
+  ],
+  'Workshops & Skill Building': [
+    'workshop','skill','training','tutorial','learn','skillsets','certificate','session','hands-on','how to','seminar'
+  ],
+  'Social & Community Events': [
+    'social','community','mixer','meetup','gathering','party','network','connect','hangout','celebration','circle'
+  ],
+  'Arts & Creative Activities': [
+    'art','creative','hive','studio','crochet','craft','drawing','painting','music','film','theatre','photography'
+  ],
+  'Academic Support & Research': [
+    'academic','research','library','thesis','phd','masters','dissertation','citation','apa','study tips','writing','grad'
+  ],
+  'International Student Services': [
+    'international','immigration','iss','visa','study permit','caq','global','newcomer','intercultural'
+  ],
+  'Leadership & Personal Growth': [
+    'leadership','leader','personal growth','mindset','emerging leaders','development','imposter syndrome','coach'
+  ],
+};
+
+/** Helpers */
+const stripHTML = (html?: string | null) =>
+  (html ?? '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const normalize = (s?: string | null) =>
+  (s ?? '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/** Match event to any of the selected interests using keywords and event_type fallback */
+const matchesByInterests = (ev: Event, interests: string[]) => {
+  const text = normalize(
+    `${ev.title} ${stripHTML(ev.description)} ${ev.event_type ?? ''} ${ev.organization ?? ''}`
+  );
+
+  // Try keyword matching first
+  for (const interest of interests) {
+    const kw = CATEGORY_KEYWORDS[interest] ?? [];
+    if (kw.length) {
+      for (const word of kw) {
+        if (text.includes(normalize(word))) return true;
+      }
+    }
+  }
+
+  // Fallback: compare normalized interest name with event_type
+  const typeNorm = normalize(ev.event_type);
+  if (typeNorm) {
+    for (const interest of interests) {
+      if (typeNorm.includes(normalize(interest))) return true;
+    }
+  }
+
+  return false;
+};
 
 export function FeedTab() {
   const [events, setEvents] = useState<Event[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const eventsPerPage = 10;
+
   const [savedEvents, setSavedEvents] = useState<Set<string>>(new Set());
   const [appliedEvents, setAppliedEvents] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [visibleCards, setVisibleCards] = useState<Set<string>>(new Set());
+
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const { user } = useAuth();
 
-  // Load events + user data
+  /** Load feed whenever user changes */
   useEffect(() => {
-    if (user) {
-      loadEventsWithPreferences();
-      loadUserData();
-    }
+    loadEventsWithPreferences();
+    loadUserData();
+    // reset paging and animation state
+    setCurrentPage(0);
+    setVisibleCards(new Set());
   }, [user]);
 
-  // Re-fetch when preferences change (triggered after EditPreferences save)
-  useEffect(() => {
-    const channel = supabase
-      .channel('realtime-prefs')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'user_preferences', filter: `user_id=eq.${user?.id}` },
-        () => loadEventsWithPreferences()
-      )
-      .subscribe();
-  
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
-
-
-  
-  // Setup intersection observer for fade-in
+  /** Set up fade/slide observer */
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setVisibleCards((prev) => new Set(prev).add(entry.target.id));
+          const id = entry.target.getAttribute('id') ?? '';
+          if (entry.isIntersecting && id) {
+            setVisibleCards((prev) => {
+              const next = new Set(prev);
+              next.add(id);
+              return next;
+            });
           }
         });
       },
-      { threshold: 0.1, rootMargin: "50px" }
+      { threshold: 0.12, rootMargin: '60px' }
     );
-
-    return () => {
-      observerRef.current?.disconnect();
-    };
+    return () => observerRef.current?.disconnect();
   }, []);
 
-  // Re-observe after new events
+  /** Re-observe cards when page/events change (to re-trigger animation each page) */
   useEffect(() => {
-    if (observerRef.current) {
-      document.querySelectorAll("[data-event-card]").forEach((card) => {
-        observerRef.current?.observe(card);
-      });
-    }
+    observerRef.current?.disconnect();
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const id = entry.target.getAttribute('id') ?? '';
+          if (entry.isIntersecting && id) {
+            setVisibleCards((prev) => {
+              const next = new Set(prev);
+              next.add(id);
+              return next;
+            });
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: '60px' }
+    );
+    document.querySelectorAll('[data-event-card]').forEach((el) => {
+      observerRef.current?.observe(el);
+    });
   }, [events, currentPage]);
 
-  // 🧠 Improved filtering logic
+  /** Smooth scroll to top when paging */
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const el = containerRef.current;
+    el.scrollTo({ top: 0, behavior: 'smooth' });
+    // reset animation flags for fresh fade-in on each page
+    setVisibleCards(new Set());
+  }, [currentPage]);
+
   const loadEventsWithPreferences = async () => {
-    if (!user) return;
     setLoading(true);
-  
     try {
-      // Get user's interests
-      const { data: prefs, error: prefError } = await supabase
-        .from("user_preferences")
-        .select("interest_name")
-        .eq("user_id", user.id);
-  
-      if (prefError) throw prefError;
-  
-      if (!prefs || prefs.length === 0) {
+      if (!user) {
         setEvents([]);
         setLoading(false);
         return;
       }
-  
-      // Collect all interest names
-      const interests = prefs.map((p) => p.interest_name.trim().toLowerCase());
-  
-      // Load all events
+
+      // 1) Get user interests
+      const { data: prefs, error: prefError } = await supabase
+        .from('user_preferences')
+        .select('interest_name')
+        .eq('user_id', user.id);
+
+      if (prefError) throw prefError;
+
+      const interests = (prefs ?? []).map((p) => p.interest_name).filter(Boolean) as string[];
+
+      // 2) Load events (order ascending by date) & keep only upcoming
       const { data: allEvents, error: eventsError } = await supabase
-        .from("events")
-        .select("*")
-        .order("date", { ascending: true });
-  
+        .from('events')
+        .select('*')
+        .order('date', { ascending: true });
+
       if (eventsError) throw eventsError;
-  
-      // Filter events by matching category case-insensitively
-      const matched = allEvents.filter((event) => {
-        const type = event.event_type?.trim().toLowerCase();
-        return interests.some((interest) => type === interest);
+
+      const now = new Date();
+      const upcoming = (allEvents ?? []).filter((e) => {
+        const d = new Date(e.date);
+        return !isNaN(d.getTime()) && d >= now;
       });
-  
-      setEvents(matched);
-    } catch (error) {
-      console.error("Error loading events with preferences:", error);
+
+      // 3) If user has no interests, show nothing (or show all—your call). We’ll show nothing for now.
+      if (!interests.length) {
+        setEvents(upcoming);
+        setLoading(false);
+        return;
+      }
+
+      // 4) Keyword-based filtering
+      const filtered = upcoming.filter((ev) => matchesByInterests(ev, interests));
+
+      setEvents(filtered);
+    } catch (err) {
+      console.error('Error loading events:', err);
+      setEvents([]);
     } finally {
       setLoading(false);
     }
   };
 
-
   const loadUserData = async () => {
     if (!user) return;
-
     try {
       const [savedResponse, appliedResponse] = await Promise.all([
-        supabase.from("saved_events").select("event_id").eq("user_id", user.id),
-        supabase.from("applications").select("event_id").eq("user_id", user.id),
+        supabase.from('saved_events').select('event_id').eq('user_id', user.id),
+        supabase.from('applications').select('event_id').eq('user_id', user.id),
       ]);
-
       if (savedResponse.data) {
         setSavedEvents(new Set(savedResponse.data.map((s: SavedEvent) => s.event_id)));
       }
-
       if (appliedResponse.data) {
         setAppliedEvents(new Set(appliedResponse.data.map((a: Application) => a.event_id)));
       }
-    } catch (error) {
-      console.error("Error loading user data:", error);
+    } catch (e) {
+      console.error('Error loading user data:', e);
     }
   };
 
   const handleSave = async (eventId: string) => {
     if (!user) return;
-
     try {
       if (savedEvents.has(eventId)) {
-        await supabase
-          .from("saved_events")
-          .delete()
-          .eq("user_id", user.id)
-          .eq("event_id", eventId);
-
+        await supabase.from('saved_events').delete().eq('user_id', user.id).eq('event_id', eventId);
         setSavedEvents((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(eventId);
-          return newSet;
+          const next = new Set(prev);
+          next.delete(eventId);
+          return next;
         });
       } else {
-        await supabase.from("saved_events").insert({
-          user_id: user.id,
-          event_id: eventId,
-        });
-
+        await supabase.from('saved_events').insert({ user_id: user.id, event_id: eventId });
         setSavedEvents((prev) => new Set(prev).add(eventId));
       }
-    } catch (error) {
-      console.error("Error saving event:", error);
+    } catch (e) {
+      console.error('Error saving event:', e);
     }
   };
 
   const addToGoogleCalendar = (event: Event) => {
-    const eventDate = new Date(event.date);
-    const endDate = new Date(eventDate.getTime() + 2 * 60 * 60 * 1000);
-
-    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
+    const start = new Date(event.date);
+    const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+    const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
       event.title
-    )}&dates=${eventDate
-      .toISOString()
-      .replace(/[-:]/g, "")
-      .split(".")[0]}Z/${endDate
-      .toISOString()
-      .replace(/[-:]/g, "")
-      .split(".")[0]}Z&details=${encodeURIComponent(
-      event.description
-    )}&location=${encodeURIComponent(event.location)}`;
-
-    window.open(calendarUrl, "_blank");
+    )}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(
+      stripHTML(event.description)
+    )}&location=${encodeURIComponent(event.location ?? '')}`;
+    window.open(url, '_blank');
   };
 
   const handleApply = async (eventId: string, event: Event) => {
     if (!user || appliedEvents.has(eventId)) return;
-
     try {
-      await supabase.from("applications").insert({
-        user_id: user.id,
-        event_id: eventId,
-        status: "applied",
-      });
-
+      await supabase.from('applications').insert({ user_id: user.id, event_id: eventId, status: 'applied' });
       setAppliedEvents((prev) => new Set(prev).add(eventId));
       addToGoogleCalendar(event);
-    } catch (error) {
-      console.error("Error applying to event:", error);
+    } catch (e) {
+      console.error('Error applying to event:', e);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-  const openModal = (event: Event) => {
-    setSelectedEvent(event);
-    setIsModalOpen(true);
-  };
+  const openModal = (ev: Event) => { setSelectedEvent(ev); setIsModalOpen(true); };
+  const closeModal = () => { setIsModalOpen(false); setTimeout(() => setSelectedEvent(null), 250); };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setTimeout(() => setSelectedEvent(null), 300);
-  };
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(events.length / eventsPerPage)),
+    [events.length]
+  );
 
-  const handleNextPage = () => {
-    setCurrentPage((prev) => prev + 1);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setVisibleCards(new Set());
-  };
-
-  const handlePreviousPage = () => {
-    setCurrentPage((prev) => prev - 1);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setVisibleCards(new Set());
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-white">Loading events...</div>
-      </div>
-    );
-  }
+  const pageSlice = useMemo(() => {
+    const start = currentPage * eventsPerPage;
+    return events.slice(start, start + eventsPerPage);
+  }, [events, currentPage]);
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto pb-24">
+      <div ref={containerRef} className="flex-1 overflow-y-auto pb-24">
         <div className="px-4 pt-6 pb-4">
           <h1 className="text-3xl font-bold text-white mb-1">Discover</h1>
           <p className="text-gray-400">Find events that match your interests</p>
         </div>
 
-        {events.length === 0 && !loading ? (
+        {loading ? (
+          <div className="flex items-center justify-center h-48 text-white">Loading events...</div>
+        ) : events.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 px-8">
-            <p className="text-gray-400 text-center mb-4">
-              No upcoming events match your interests right now.
-            </p>
-            <p className="text-gray-500 text-sm text-center">
-              Try updating your preferences to discover more events!
-            </p>
+            <p className="text-gray-400 text-center mb-2">No upcoming events match your interests right now.</p>
+            <p className="text-gray-500 text-sm text-center">Try updating your preferences to discover more events!</p>
           </div>
         ) : (
           <div className="px-4 space-y-4 pb-4">
-            {events
-              .slice(
-                currentPage * eventsPerPage,
-                (currentPage + 1) * eventsPerPage
-              )
-              .map((event, index) => {
-                const isSaved = savedEvents.has(event.id);
-                const isApplied = appliedEvents.has(event.id);
-                const isVisible = visibleCards.has(`event-${event.id}`);
+            {pageSlice.map((event, idx) => {
+              const isSaved = savedEvents.has(event.id);
+              const isApplied = appliedEvents.has(event.id);
+              const cardId = `event-${event.id}`;
+              const visible = visibleCards.has(cardId);
 
-                return (
+              return (
+                <div
+                  key={event.id}
+                  id={cardId}
+                  data-event-card
+                  className={`bg-[#1a1d29] rounded-3xl overflow-hidden border border-gray-800 hover:border-gray-700 transition-all duration-500
+                    ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+                  style={{ transitionDelay: `${idx * 35}ms` }}
+                >
                   <div
-                    key={event.id}
-                    id={`event-${event.id}`}
-                    data-event-card
-                    className={`bg-[#1a1d29] rounded-3xl overflow-hidden border border-gray-800 hover:border-gray-700 transition-all duration-700 ${
-                      isVisible
-                        ? "opacity-100 translate-y-0"
-                        : "opacity-0 translate-y-6"
-                    }`}
-                    style={{ transitionDelay: `${index * 50}ms` }}
+                    className="h-48 bg-cover bg-center relative"
+                    style={{
+                      backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.6)), url(${event.image_url ?? ''})`,
+                    }}
                   >
-                    <div
-                      className="h-48 bg-cover bg-center relative"
-                      style={{
-                        backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.6)), url(${event.image_url})`,
-                      }}
-                    >
+                    {event.event_type && (
                       <div className="absolute top-4 left-4">
                         <span className="bg-[#4C6EF5] text-white px-3 py-1 rounded-full text-xs font-semibold">
                           {event.event_type}
                         </span>
                       </div>
-                      <button
-                        onClick={() => handleSave(event.id)}
-                        className="absolute top-4 right-4 bg-black/50 backdrop-blur-sm p-2 rounded-full hover:bg-black/70 transition-colors"
-                      >
-                        <Bookmark
-                          className={`w-5 h-5 ${
-                            isSaved
-                              ? "fill-[#4C6EF5] text-[#4C6EF5]"
-                              : "text-white"
-                          }`}
-                        />
-                      </button>
+                    )}
+                    <button
+                      onClick={() => handleSave(event.id)}
+                      className="absolute top-4 right-4 bg-black/50 backdrop-blur-sm p-2 rounded-full hover:bg-black/70 transition-colors"
+                    >
+                      <Bookmark className={`w-5 h-5 ${isSaved ? 'fill-[#4C6EF5] text-[#4C6EF5]' : 'text-white'}`} />
+                    </button>
+                  </div>
+
+                  <div className="p-5 space-y-3">
+                    <div>
+                      <h3 className="text-xl font-bold text-white mb-1">{event.title}</h3>
+                      {event.organization && <p className="text-gray-400 text-sm">{event.organization}</p>}
                     </div>
 
-                    <div className="p-5 space-y-3">
-                      <div>
-                        <h3 className="text-xl font-bold text-white mb-1">
-                          {event.title}
-                        </h3>
-                        <p className="text-gray-400 text-sm">
-                          {event.organization}
-                        </p>
+                    <p className="text-gray-300 text-sm line-clamp-2">{stripHTML(event.description)}</p>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-gray-400 text-sm">
+                        <Calendar className="w-4 h-4" />
+                        <span>{formatDate(event.date)}</span>
                       </div>
-
-                      <p className="text-gray-300 text-sm line-clamp-2">
-                        {event.description}
-                      </p>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-gray-400 text-sm">
-                          <Calendar className="w-4 h-4" />
-                          <span>{formatDate(event.date)}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-gray-400 text-sm">
-                          <MapPin className="w-4 h-4" />
-                          <span>{event.location}</span>
-                        </div>
-                        {event.prize && (
-                          <div className="flex items-center gap-2 text-[#4C6EF5] text-sm font-medium">
-                            <Award className="w-4 h-4" />
-                            <span>{event.prize}</span>
-                          </div>
-                        )}
+                      <div className="flex items-center gap-2 text-gray-400 text-sm">
+                        <MapPin className="w-4 h-4" />
+                        <span>{event.location ?? 'McGill University'}</span>
                       </div>
-
-                      {event.tags && event.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {event.tags.slice(0, 3).map((tag, idx) => (
-                            <span
-                              key={idx}
-                              className="bg-gray-800 text-gray-300 px-3 py-1 rounded-full text-xs"
-                            >
-                              {tag}
-                            </span>
-                          ))}
+                      {event.prize && (
+                        <div className="flex items-center gap-2 text-[#4C6EF5] text-sm font-medium">
+                          <Award className="w-4 h-4" />
+                          <span>{event.prize}</span>
                         </div>
                       )}
+                    </div>
 
-                      <div className="space-y-2">
+                    {event.tags?.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {event.tags.slice(0, 3).map((tag, idx) => (
+                          <span key={idx} className="bg-gray-800 text-gray-300 px-3 py-1 rounded-full text-xs">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => openModal(event)}
+                        className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white hover:opacity-90 transition-opacity"
+                      >
+                        <Eye className="w-4 h-4" />
+                        View Details
+                      </button>
+
+                      <div className="flex gap-2">
+                        {/* You said Add to Calendar is redundant; keep Apply only if you prefer */}
                         <button
-                          onClick={() => openModal(event)}
-                          className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white hover:opacity-90 transition-opacity"
+                          onClick={() => handleApply(event.id, event)}
+                          disabled={isApplied}
+                          className={`flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
+                            isApplied
+                              ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                              : 'bg-[#0B0C10] text-white border border-gray-700 hover:border-gray-600'
+                          }`}
                         >
-                          <Eye className="w-4 h-4" />
-                          View Details
+                          {isApplied ? 'Applied' : (<><Send className="w-4 h-4" />Apply</>)}
                         </button>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => addToGoogleCalendar(event)}
-                            className="flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 bg-[#0B0C10] text-white border border-gray-700 hover:border-gray-600 transition-colors"
-                          >
-                            <CalendarPlus className="w-4 h-4" />
-                            Add to Calendar
-                          </button>
-                          <button
-                            onClick={() => handleApply(event.id, event)}
-                            disabled={isApplied}
-                            className={`flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
-                              isApplied
-                                ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                                : "bg-[#0B0C10] text-white border border-gray-700 hover:border-gray-600"
-                            }`}
-                          >
-                            {isApplied ? (
-                              "Applied"
-                            ) : (
-                              <>
-                                <Send className="w-4 h-4" />
-                                Apply
-                              </>
-                            )}
-                          </button>
-                        </div>
                       </div>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              );
+            })}
 
             {/* Pagination */}
             {events.length > eventsPerPage && (
-              <div className="flex flex-col items-center justify-center gap-3 pt-4 pb-2">
-                <p className="text-gray-400 text-sm">
-                  Page {currentPage + 1} of{" "}
-                  {Math.ceil(events.length / eventsPerPage)}
-                </p>
-                <div className="flex justify-center gap-3">
-                  {currentPage > 0 && (
-                    <button
-                      onClick={handlePreviousPage}
-                      className="bg-[#1a1d29] text-white font-semibold px-6 py-3 rounded-xl hover:bg-[#252837] transition-colors border border-gray-700"
-                    >
-                      Previous Page
-                    </button>
-                  )}
-                  {(currentPage + 1) * eventsPerPage < events.length && (
-                    <button
-                      onClick={handleNextPage}
-                      className="bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white font-semibold px-8 py-3 rounded-xl hover:opacity-90 transition-opacity"
-                    >
-                      Next Page
-                    </button>
-                  )}
-                </div>
+              <div className="flex items-center justify-center gap-3 pt-4 pb-2">
+                <p className="text-gray-400 text-sm">Page {currentPage + 1} of {totalPages}</p>
+                {currentPage > 0 && (
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                    className="bg-[#1a1d29] text-white font-semibold px-6 py-3 rounded-xl hover:bg-[#252837] transition-colors border border-gray-700"
+                  >
+                    Previous
+                  </button>
+                )}
+                {currentPage + 1 < totalPages && (
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                    className="bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white font-semibold px-8 py-3 rounded-xl hover:opacity-90 transition-opacity"
+                  >
+                    Next Page
+                  </button>
+                )}
               </div>
             )}
           </div>
         )}
       </div>
 
-      <EventModal
-        event={selectedEvent}
-        isOpen={isModalOpen}
-        onClose={closeModal}
-      />
+      <EventModal event={selectedEvent} isOpen={isModalOpen} onClose={closeModal} />
     </>
   );
 }
