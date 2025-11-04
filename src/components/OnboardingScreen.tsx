@@ -21,20 +21,38 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const { user } = useAuth();
 
   useEffect(() => {
-    loadInterests();
-  }, []);
+    if (!user) return;
+    loadInterestsAndPrefs();
+  }, [user]);
 
-  const loadInterests = async () => {
+  // ✅ Load all interests AND user's saved preferences
+  const loadInterestsAndPrefs = async () => {
     try {
-      const { data, error } = await supabase
-        .from('interests')
-        .select('*')
-        .order('name');
+      const [{ data: allInterests }, { data: prefs }] = await Promise.all([
+        supabase.from('interests').select('*').order('name'),
+        supabase
+          .from('user_preferences')
+          .select('interest_name')
+          .eq('user_id', user?.id)
+      ]);
 
-      if (error) throw error;
-      setInterests(data || []);
+      setInterests(allInterests || []);
+
+      if (prefs && prefs.length > 0) {
+        const matched = allInterests
+          ?.filter((i) =>
+            prefs.some(
+              (p) =>
+                p.interest_name.trim().toLowerCase() ===
+                i.name.trim().toLowerCase()
+            )
+          )
+          .map((i) => i.id);
+
+        setSelectedInterests(new Set(matched));
+      }
     } catch (error) {
-      console.error('Error loading interests:', error);
+      console.error('Error loading interests or prefs:', error);
     } finally {
       setLoading(false);
     }
@@ -43,15 +61,13 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const toggleInterest = (interestId: string) => {
     setSelectedInterests((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(interestId)) {
-        newSet.delete(interestId);
-      } else {
-        newSet.add(interestId);
-      }
+      if (newSet.has(interestId)) newSet.delete(interestId);
+      else newSet.add(interestId);
       return newSet;
     });
   };
 
+  // ✅ Replace old preferences entirely
   const handleComplete = async () => {
     if (selectedInterests.size === 0 || !user) return;
 
@@ -59,29 +75,29 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
       setSaving(true);
 
       const selectedInterestNames = Array.from(selectedInterests)
-        .map(interestId => {
-          const interest = interests.find(i => i.id === interestId);
-          return interest?.name;
-        })
+        .map((id) => interests.find((i) => i.id === id)?.name)
         .filter(Boolean);
 
-      const preferenceInserts = selectedInterestNames.map((interestName) => ({
+      // Replace instead of append
+      await supabase.from('user_preferences').delete().eq('user_id', user.id);
+
+      const rows = selectedInterestNames.map((name) => ({
         user_id: user.id,
-        interest_name: interestName,
+        interest_name: name,
       }));
 
-      const { error: preferencesError } = await supabase
-        .from('user_preferences')
-        .insert(preferenceInserts);
+      if (rows.length) {
+        const { error } = await supabase
+          .from('user_preferences')
+          .insert(rows);
+        if (error) throw error;
+      }
 
-      if (preferencesError) throw preferencesError;
-
-      const { error: profileError } = await supabase
+      // Mark profile as onboarded if needed
+      await supabase
         .from('profiles')
         .update({ onboarded: true })
         .eq('id', user.id);
-
-      if (profileError) throw profileError;
 
       onComplete();
     } catch (error) {
@@ -125,7 +141,9 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 }`}
               >
                 <div className="text-2xl mb-2">{getIcon(interest.icon)}</div>
-                <div className="text-white font-medium text-sm">{interest.name}</div>
+                <div className="text-white font-medium text-sm">
+                  {interest.name}
+                </div>
               </button>
             );
           })}
