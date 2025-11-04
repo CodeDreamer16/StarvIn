@@ -40,6 +40,7 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
 
 export function FeedTab() {
   const [events, setEvents] = useState<Event[]>([]);
+  const [allEvents, setAllEvents] = useState<Event[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const eventsPerPage = 10;
   const [savedEvents, setSavedEvents] = useState<Set<string>>(new Set());
@@ -119,6 +120,7 @@ export function FeedTab() {
 
       const startIndex = currentPage * eventsPerPage;
       const paginatedEvents = filteredEvents.slice(startIndex, startIndex + eventsPerPage);
+      setAllEvents(filteredEvents);
       setEvents(paginatedEvents);
     } catch (error) {
       console.error('Error loading events:', error);
@@ -216,7 +218,7 @@ export function FeedTab() {
     setTimeout(() => setSelectedEvent(null), 300);
   };
 
-  const totalPages = Math.ceil(events.length / eventsPerPage);
+  const totalPages = Math.ceil(allEvents.length / eventsPerPage);
 
   if (loading) {
     return (
