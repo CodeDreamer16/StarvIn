@@ -41,7 +41,7 @@ export function FeedTab() {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const { user } = useAuth();
 
-  // ✅ Smooth scroll helper
+  // Smooth scroll helper
   const scrollToTop = () => {
     setTimeout(() => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -56,8 +56,8 @@ export function FeedTab() {
     loadUserData();
   }, [user]);
 
+  // Initialize fade-in observer once
   useEffect(() => {
-    // ✅ Set up fade-in observer
     observerRef.current = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -68,17 +68,15 @@ export function FeedTab() {
       },
       { threshold: 0.1, rootMargin: '50px' }
     );
-
     return () => observerRef.current?.disconnect();
   }, []);
 
+  // Re-observe cards whenever events change
   useEffect(() => {
-    // Observe each event card for animation
-    if (observerRef.current) {
-      document.querySelectorAll('[data-event-card]').forEach((card) => {
-        observerRef.current?.observe(card);
-      });
-    }
+    if (!observerRef.current) return;
+    document.querySelectorAll('[data-event-card]').forEach((card) => {
+      observerRef.current!.observe(card);
+    });
   }, [events]);
 
   const loadEvents = async () => {
@@ -87,9 +85,7 @@ export function FeedTab() {
         .from('events')
         .select('*')
         .order('date', { ascending: true });
-
       if (error) throw error;
-
       setAllEvents(data || []);
       setEvents((data || []).slice(0, eventsPerPage));
     } catch (err) {
@@ -101,16 +97,13 @@ export function FeedTab() {
 
   const loadUserData = async () => {
     if (!user) return;
-
     try {
       const [savedResponse, appliedResponse] = await Promise.all([
         supabase.from('saved_events').select('event_id').eq('user_id', user.id),
         supabase.from('applications').select('event_id').eq('user_id', user.id),
       ]);
-
       if (savedResponse.data)
         setSavedEvents(new Set(savedResponse.data.map((s: SavedEvent) => s.event_id)));
-
       if (appliedResponse.data)
         setAppliedEvents(new Set(appliedResponse.data.map((a: Application) => a.event_id)));
     } catch (error) {
@@ -120,7 +113,6 @@ export function FeedTab() {
 
   const handleSave = async (eventId: string) => {
     if (!user) return;
-
     try {
       if (savedEvents.has(eventId)) {
         await supabase.from('saved_events').delete().eq('user_id', user.id).eq('event_id', eventId);
@@ -172,9 +164,23 @@ export function FeedTab() {
   const goToPage = (newPage: number) => {
     const start = newPage * eventsPerPage;
     const end = start + eventsPerPage;
+    setVisibleCards(new Set()); // 👈 reset animation state
     setEvents(allEvents.slice(start, end));
     setCurrentPage(newPage);
     scrollToTop();
+    // 👇 re-trigger fade animation a moment after DOM updates
+    setTimeout(() => {
+      document.querySelectorAll('[data-event-card]').forEach((card) => {
+        card.classList.remove('opacity-100', 'translate-y-0');
+        card.classList.add('opacity-0', 'translate-y-5');
+      });
+      setTimeout(() => {
+        document.querySelectorAll('[data-event-card]').forEach((card) => {
+          card.classList.remove('opacity-0', 'translate-y-5');
+          card.classList.add('opacity-100', 'translate-y-0');
+        });
+      }, 100);
+    }, 150);
   };
 
   const formatDate = (dateString: string) => {
@@ -221,7 +227,6 @@ export function FeedTab() {
               const isSaved = savedEvents.has(event.id);
               const isApplied = appliedEvents.has(event.id);
               const isVisible = visibleCards.has(`event-${event.id}`);
-
               return (
                 <div
                   key={event.id}
@@ -311,7 +316,7 @@ export function FeedTab() {
               );
             })}
 
-            {/* ✅ Clean pagination */}
+            {/* Pagination */}
             <div className="flex flex-col items-center justify-center gap-3 pt-8 pb-10">
               <p className="text-gray-400 text-sm">
                 Page {currentPage + 1} of {totalPages || 1}
