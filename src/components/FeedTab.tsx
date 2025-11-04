@@ -52,6 +52,17 @@ export function FeedTab() {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const { user } = useAuth();
 
+  const scrollToTop = () => {
+    const feedContainer = document.querySelector('.feed-scroll-container');
+    if (feedContainer) {
+      feedContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  
+
   useEffect(() => {
     loadEventsWithPreferences();
     loadUserData();
@@ -230,7 +241,7 @@ export function FeedTab() {
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto pb-24">
+      <div className="flex-1 overflow-y-auto pb-24 feed-scroll-container">
         <div className="px-4 pt-6 pb-4">
           <h1 className="text-3xl font-bold text-white mb-1">Discover</h1>
           <p className="text-gray-400">Find events that match your interests</p>
@@ -363,7 +374,11 @@ export function FeedTab() {
               <div className="flex gap-3">
                 {currentPage > 0 && (
                   <button
-                    onClick={() => setCurrentPage((p) => p - 1)}
+                    onClick={() => {
+                      setCurrentPage((p) => p - 1);
+                      scrollToTop();
+                    }}
+
                     className="rounded-xl bg-[#1a1d29] px-6 py-3 font-semibold text-white border border-gray-700 hover:border-gray-500 transition-colors"
                   >
                     Previous Page
@@ -371,7 +386,10 @@ export function FeedTab() {
                 )}
                 {currentPage + 1 < totalPages && (
                   <button
-                    onClick={() => setCurrentPage((p) => p + 1)}
+                    onClick={() => {
+                      setCurrentPage((p) => p + 1);
+                      scrollToTop();
+                    }}
                     className="rounded-xl bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] px-8 py-3 font-semibold text-white transition-opacity hover:opacity-90"
                   >
                     Next Page
