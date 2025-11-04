@@ -232,8 +232,8 @@ export function FeedTab() {
                   key={event.id}
                   id={`event-${event.id}`}
                   data-event-card
-                  className={`bg-[#1a1d29] rounded-3xl overflow-hidden border border-gray-800 hover:border-gray-700 transition-all duration-700 transform ${
-                    isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
+                  className={`bg-[#1a1d29] rounded-3xl overflow-hidden border border-gray-800 hover:border-gray-700 transition-all duration-[420ms] ease-[cubic-bezier(0.33,1,0.68,1)] transform ${
+                    isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
                   }`}
                   style={{ transitionDelay: `${idx * 50}ms` }}
                 >
