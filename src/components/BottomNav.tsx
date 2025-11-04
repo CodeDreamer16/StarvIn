@@ -1,0 +1,44 @@
+import { Home, FileText, User } from 'lucide-react';
+
+interface BottomNavProps {
+  activeTab: 'feed' | 'applications' | 'profile';
+  onTabChange: (tab: 'feed' | 'applications' | 'profile') => void;
+}
+
+export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 bg-[#1a1d29] border-t border-gray-800 safe-area-inset-bottom">
+      <div className="flex items-center justify-around h-20 px-6">
+        <button
+          onClick={() => onTabChange('feed')}
+          className={`flex flex-col items-center gap-1 transition-colors ${
+            activeTab === 'feed' ? 'text-[#4C6EF5]' : 'text-gray-400'
+          }`}
+        >
+          <Home className="w-6 h-6" />
+          <span className="text-xs font-medium">Feed</span>
+        </button>
+
+        <button
+          onClick={() => onTabChange('applications')}
+          className={`flex flex-col items-center gap-1 transition-colors ${
+            activeTab === 'applications' ? 'text-[#4C6EF5]' : 'text-gray-400'
+          }`}
+        >
+          <FileText className="w-6 h-6" />
+          <span className="text-xs font-medium">Applications</span>
+        </button>
+
+        <button
+          onClick={() => onTabChange('profile')}
+          className={`flex flex-col items-center gap-1 transition-colors ${
+            activeTab === 'profile' ? 'text-[#4C6EF5]' : 'text-gray-400'
+          }`}
+        >
+          <User className="w-6 h-6" />
+          <span className="text-xs font-medium">Profile</span>
+        </button>
+      </div>
+    </nav>
+  );
+}
