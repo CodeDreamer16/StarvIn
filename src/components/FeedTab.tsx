@@ -51,15 +51,10 @@ export function FeedTab() {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const { user } = useAuth();
 
-  // Pagination helpers
-  const totalPages = Math.ceil(events.length / eventsPerPage);
-  const startIndex = currentPage * eventsPerPage;
-  const currentEvents = events.slice(startIndex, startIndex + eventsPerPage);
-
   useEffect(() => {
-    loadEventsWithPreferences();
+    loadEventsWithPreferences(currentPage);
     loadUserData();
-  }, [user]);
+  }, [user, currentPage]);
 
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
@@ -92,12 +87,14 @@ export function FeedTab() {
     });
   };
 
-  const loadEventsWithPreferences = async () => {
+  const loadEventsWithPreferences = async (page = 0) => {
     try {
       if (!user) {
         setLoading(false);
         return;
       }
+
+      console.log(`Fetching page ${page}`);
 
       const { data: preferences, error: prefError } = await supabase
         .from('user_preferences')
@@ -108,21 +105,25 @@ export function FeedTab() {
 
       const userInterests = preferences?.map((p) => p.interest_name) || [];
 
-      const { data: allEvents, error: eventsError } = await supabase
+      const start = page * eventsPerPage;
+      const end = start + eventsPerPage - 1;
+
+      const { data: pageEvents, error: eventsError } = await supabase
         .from('events')
         .select('*, link')
-        .order('date', { ascending: true });
+        .order('date', { ascending: true })
+        .range(start, end);
 
       if (eventsError) throw eventsError;
 
       const filtered = userInterests.length
-        ? (allEvents || []).filter((e) => matchesKeywords(e, userInterests))
-        : allEvents || [];
+        ? (pageEvents || []).filter((e) => matchesKeywords(e, userInterests))
+        : pageEvents || [];
 
-      setEvents(filtered);
+      // Append instead of replace
+      setEvents((prev) => (page === 0 ? filtered : [...prev, ...filtered]));
     } catch (err) {
       console.error('Error loading events:', err);
-      setEvents([]);
     } finally {
       setLoading(false);
     }
@@ -219,7 +220,7 @@ export function FeedTab() {
           </div>
         ) : (
           <div className="space-y-4 px-4 pb-4">
-            {currentEvents.map((event, index) => {
+            {events.map((event, index) => {
               const isSaved = savedEvents.has(event.id);
               const isApplied = appliedEvents.has(event.id);
               const isVisible = visibleCards.has(`event-${event.id}`);
@@ -306,10 +307,12 @@ export function FeedTab() {
                             : 'bg-[#0B0C10] text-white border border-gray-700 hover:border-gray-600'
                         }`}
                       >
-                        {isApplied ? 'Applied' : <>
-                          <Send className="h-4 w-4" />
-                          Apply
-                        </>}
+                        {isApplied ? 'Applied' : (
+                          <>
+                            <Send className="h-4 w-4" />
+                            Apply
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -317,29 +320,18 @@ export function FeedTab() {
               );
             })}
 
-            {events.length > eventsPerPage && (
-              <div className="flex items-center justify-center gap-3 pt-4 pb-2">
-                {currentPage > 0 && (
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.max(p - 1, 0))}
-                    className="rounded-xl border border-gray-700 bg-[#1a1d29] px-6 py-3 font-semibold text-white transition-colors hover:bg-[#252837]"
-                  >
-                    Previous
-                  </button>
-                )}
-                <span className="text-sm text-gray-400">
-                  Page {currentPage + 1} of {totalPages}
-                </span>
-                {currentPage < totalPages - 1 && (
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages - 1))}
-                    className="rounded-xl bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] px-8 py-3 font-semibold text-white transition-opacity hover:opacity-90"
-                  >
-                    Load More
-                  </button>
-                )}
-              </div>
-            )}
+            <div className="flex items-center justify-center gap-3 pt-4 pb-2">
+              {loading ? (
+                <span className="text-gray-400">Loading...</span>
+              ) : (
+                <button
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  className="rounded-xl bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] px-8 py-3 font-semibold text-white transition-opacity hover:opacity-90"
+                >
+                  Load More
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
