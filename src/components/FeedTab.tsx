@@ -28,14 +28,14 @@ interface Application {
 }
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  'Wellness & Mental Health': ['wellness', 'mental health', 'therapy', 'yoga', 'stress', 'anxiety', 'support group', 'mindfulness', 'meditation', 'health'],
-  'Career & Professional Development': ['career', 'job', 'linkedin', 'internship', 'resume', 'professional', 'networking', 'employment', 'industry'],
-  'Workshops & Skill Building': ['workshop', 'skill', 'training', 'tutorial', 'learn', 'citation', 'skillsets'],
-  'Social & Community Events': ['social', 'community', 'meetup', 'party', 'event', 'gathering', 'connect'],
-  'Arts & Creative Activities': ['art', 'creative', 'studio', 'craft', 'artistic', 'hive'],
-  'Academic Support & Research': ['academic', 'research', 'library', 'phd', 'study', 'graduate', 'masters'],
-  'International Student Services': ['international', 'immigration', 'iss', 'visa', 'caq', 'legal'],
-  'Leadership & Personal Growth': ['leadership', 'leader', 'personal growth', 'emerging leaders', 'mindset'],
+  'Wellness & Mental Health': ['wellness', 'mental health', 'therapy', 'yoga', 'stress', 'anxiety', 'support group', 'animal therapy', 'mindfulness', 'meditation', 'walk', 'paws', 'health'],
+  'Career & Professional Development': ['career', 'job', 'linkedin', 'internship', 'resume', 'professional', 'networking', 'employment', 'headshot', 'negotiation', 'industry'],
+  'Workshops & Skill Building': ['workshop', 'skill', 'training', 'tutorial', 'learn', 'apa', 'citation', 'grad breakfast', 'skillsets'],
+  'Social & Community Events': ['social', 'community', 'meetup', 'connect', 'party', 'event', 'gathering', 'contemplative', 'after the party'],
+  'Arts & Creative Activities': ['art', 'creative', 'hive', 'studio', 'crochet', 'craft', 'artistic', 'making'],
+  'Academic Support & Research': ['academic', 'research', 'library', 'phd', 'thesis', 'study', 'graduate', 'masters', 'dissertation'],
+  'International Student Services': ['international', 'immigration', 'iss', 'visa', 'study permit', 'caq', 'legal', 'document'],
+  'Leadership & Personal Growth': ['leadership', 'leader', 'personal growth', 'emerging leaders', 'development', 'mindset', 'imposter syndrome'],
 };
 
 export function FeedTab() {
@@ -52,7 +52,7 @@ export function FeedTab() {
   const { user } = useAuth();
 
   useEffect(() => {
-    loadEventsWithPreferences(currentPage);
+    loadEventsWithPreferences();
     loadUserData();
   }, [user, currentPage]);
 
@@ -68,7 +68,9 @@ export function FeedTab() {
       { threshold: 0.1, rootMargin: '50px' }
     );
 
-    return () => observerRef.current?.disconnect();
+    return () => {
+      if (observerRef.current) observerRef.current.disconnect();
+    };
   }, []);
 
   useEffect(() => {
@@ -83,18 +85,16 @@ export function FeedTab() {
     const searchText = `${event.title} ${event.description || ''} ${event.event_type || ''} ${event.organization || ''}`.toLowerCase();
     return interests.some((interest) => {
       const keywords = CATEGORY_KEYWORDS[interest] || [];
-      return keywords.some((kw) => searchText.includes(kw.toLowerCase()));
+      return keywords.some((keyword) => searchText.includes(keyword.toLowerCase()));
     });
   };
 
-  const loadEventsWithPreferences = async (page = 0) => {
+  const loadEventsWithPreferences = async () => {
     try {
       if (!user) {
         setLoading(false);
         return;
       }
-
-      console.log(`Fetching page ${page}`);
 
       const { data: preferences, error: prefError } = await supabase
         .from('user_preferences')
@@ -105,25 +105,24 @@ export function FeedTab() {
 
       const userInterests = preferences?.map((p) => p.interest_name) || [];
 
-      const start = page * eventsPerPage;
-      const end = start + eventsPerPage - 1;
-
-      const { data: pageEvents, error: eventsError } = await supabase
+      const { data: allEvents, error: eventsError } = await supabase
         .from('events')
         .select('*, link')
-        .order('date', { ascending: true })
-        .range(start, end);
+        .order('date', { ascending: true });
 
       if (eventsError) throw eventsError;
 
-      const filtered = userInterests.length
-        ? (pageEvents || []).filter((e) => matchesKeywords(e, userInterests))
-        : pageEvents || [];
+      let filteredEvents = allEvents || [];
+      if (userInterests.length > 0) {
+        filteredEvents = filteredEvents.filter((event) => matchesKeywords(event, userInterests));
+      }
 
-      // Append instead of replace
-      setEvents(filtered);
-    } catch (err) {
-      console.error('Error loading events:', err);
+      const startIndex = currentPage * eventsPerPage;
+      const paginatedEvents = filteredEvents.slice(startIndex, startIndex + eventsPerPage);
+      setEvents(paginatedEvents);
+    } catch (error) {
+      console.error('Error loading events:', error);
+      setEvents([]);
     } finally {
       setLoading(false);
     }
@@ -131,95 +130,121 @@ export function FeedTab() {
 
   const loadUserData = async () => {
     if (!user) return;
+
     try {
-      const [savedRes, appliedRes] = await Promise.all([
+      const [savedResponse, appliedResponse] = await Promise.all([
         supabase.from('saved_events').select('event_id').eq('user_id', user.id),
         supabase.from('applications').select('event_id').eq('user_id', user.id),
       ]);
-      if (savedRes.data) setSavedEvents(new Set(savedRes.data.map((s: SavedEvent) => s.event_id)));
-      if (appliedRes.data) setAppliedEvents(new Set(appliedRes.data.map((a: Application) => a.event_id)));
-    } catch (err) {
-      console.error('Error loading user data:', err);
+
+      if (savedResponse.data) {
+        setSavedEvents(new Set(savedResponse.data.map((s: SavedEvent) => s.event_id)));
+      }
+      if (appliedResponse.data) {
+        setAppliedEvents(new Set(appliedResponse.data.map((a: Application) => a.event_id)));
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
     }
   };
 
-  const handleSave = async (id: string) => {
+  const handleSave = async (eventId: string) => {
     if (!user) return;
+
     try {
-      if (savedEvents.has(id)) {
-        await supabase.from('saved_events').delete().eq('user_id', user.id).eq('event_id', id);
+      if (savedEvents.has(eventId)) {
+        await supabase.from('saved_events').delete().eq('user_id', user.id).eq('event_id', eventId);
         setSavedEvents((prev) => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
+          const newSet = new Set(prev);
+          newSet.delete(eventId);
+          return newSet;
         });
       } else {
-        await supabase.from('saved_events').insert({ user_id: user.id, event_id: id });
-        setSavedEvents((prev) => new Set(prev).add(id));
+        await supabase.from('saved_events').insert({ user_id: user.id, event_id: eventId });
+        setSavedEvents((prev) => new Set(prev).add(eventId));
       }
-    } catch (err) {
-      console.error('Error saving event:', err);
+    } catch (error) {
+      console.error('Error saving event:', error);
     }
   };
 
   const addToGoogleCalendar = (event: Event) => {
-    const start = new Date(event.date);
-    const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
-    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
+    const eventDate = new Date(event.date);
+    const endDate = new Date(eventDate.getTime() + 2 * 60 * 60 * 1000);
+
+    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
       event.title
-    )}&dates=${start.toISOString().replace(/[-:]/g, '').split('.')[0]}Z/${end
+    )}&dates=${eventDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z/${endDate
       .toISOString()
       .replace(/[-:]/g, '')
       .split('.')[0]}Z&details=${encodeURIComponent(
       event.description
     )}&location=${encodeURIComponent(event.location)}`;
-    window.open(url, '_blank');
+
+    window.open(calendarUrl, '_blank');
   };
 
-  const handleApply = async (id: string, event: Event) => {
-    if (!user || appliedEvents.has(id)) return;
+  const handleApply = async (eventId: string, event: Event) => {
+    if (!user || appliedEvents.has(eventId)) return;
+
     try {
-      await supabase.from('applications').insert({ user_id: user.id, event_id: id, status: 'applied' });
-      setAppliedEvents((prev) => new Set(prev).add(id));
+      await supabase.from('applications').insert({
+        user_id: user.id,
+        event_id: eventId,
+        status: 'applied',
+      });
+
+      setAppliedEvents((prev) => new Set(prev).add(eventId));
       addToGoogleCalendar(event);
-    } catch (err) {
-      console.error('Error applying to event:', err);
+    } catch (error) {
+      console.error('Error applying to event:', error);
     }
   };
 
-  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
 
-  const openModal = (e: Event) => {
-    setSelectedEvent(e);
+  const openModal = (event: Event) => {
+    setSelectedEvent(event);
     setIsModalOpen(true);
   };
+
   const closeModal = () => {
     setIsModalOpen(false);
     setTimeout(() => setSelectedEvent(null), 300);
   };
 
-  if (loading)
+  const totalPages = Math.ceil(events.length / eventsPerPage);
+
+  if (loading) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex items-center justify-center h-full">
         <div className="text-white">Loading events...</div>
       </div>
     );
+  }
 
   return (
     <>
       <div className="flex-1 overflow-y-auto pb-24">
         <div className="px-4 pt-6 pb-4">
-          <h1 className="mb-1 text-3xl font-bold text-white">Discover</h1>
+          <h1 className="text-3xl font-bold text-white mb-1">Discover</h1>
           <p className="text-gray-400">Find events that match your interests</p>
         </div>
 
         {events.length === 0 && !loading ? (
-          <div className="flex h-64 flex-col items-center justify-center px-8 text-center">
-            <p className="mb-4 text-gray-400">No upcoming events match your interests right now.</p>
-            <p className="text-sm text-gray-500">Try updating your preferences to discover more events!</p>
+          <div className="flex flex-col items-center justify-center h-64 px-8">
+            <p className="text-gray-400 text-center mb-4">
+              No upcoming events match your interests right now.
+            </p>
+            <p className="text-gray-500 text-sm text-center">
+              Try updating your preferences to discover more events!
+            </p>
           </div>
         ) : (
-          <div className="space-y-4 px-4 pb-4">
+          <div className="px-4 space-y-4 pb-4">
             {events.map((event, index) => {
               const isSaved = savedEvents.has(event.id);
               const isApplied = appliedEvents.has(event.id);
@@ -230,59 +255,64 @@ export function FeedTab() {
                   key={event.id}
                   id={`event-${event.id}`}
                   data-event-card
-                  className={`rounded-3xl border border-gray-800 bg-[#1a1d29] transition-all duration-500 hover:border-gray-700 ${
+                  className={`bg-[#1a1d29] rounded-3xl overflow-hidden border border-gray-800 hover:border-gray-700 transition-all duration-500 ${
                     isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
                   }`}
                   style={{ transitionDelay: `${index * 50}ms` }}
                 >
                   <div
-                    className="relative h-48 bg-cover bg-center"
+                    className="h-48 bg-cover bg-center relative"
                     style={{
                       backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.6)), url(${event.image_url})`,
                     }}
                   >
                     <div className="absolute top-4 left-4">
-                      <span className="rounded-full bg-[#4C6EF5] px-3 py-1 text-xs font-semibold text-white">
+                      <span className="bg-[#4C6EF5] text-white px-3 py-1 rounded-full text-xs font-semibold">
                         {event.event_type}
                       </span>
                     </div>
                     <button
                       onClick={() => handleSave(event.id)}
-                      className="absolute top-4 right-4 rounded-full bg-black/50 p-2 backdrop-blur-sm transition-colors hover:bg-black/70"
+                      className="absolute top-4 right-4 bg-black/50 backdrop-blur-sm p-2 rounded-full hover:bg-black/70 transition-colors"
                     >
-                      <Bookmark className={`h-5 w-5 ${isSaved ? 'fill-[#4C6EF5] text-[#4C6EF5]' : 'text-white'}`} />
+                      <Bookmark
+                        className={`w-5 h-5 ${isSaved ? 'fill-[#4C6EF5] text-[#4C6EF5]' : 'text-white'}`}
+                      />
                     </button>
                   </div>
 
-                  <div className="space-y-3 p-5">
+                  <div className="p-5 space-y-3">
                     <div>
-                      <h3 className="mb-1 text-xl font-bold text-white">{event.title}</h3>
-                      <p className="text-sm text-gray-400">{event.organization}</p>
+                      <h3 className="text-xl font-bold text-white mb-1">{event.title}</h3>
+                      <p className="text-gray-400 text-sm">{event.organization}</p>
                     </div>
 
-                    <p className="line-clamp-2 text-sm text-gray-300">{event.description}</p>
+                    <p className="text-gray-300 text-sm line-clamp-2">{event.description}</p>
 
-                    <div className="space-y-2 text-sm text-gray-400">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4" />
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-gray-400 text-sm">
+                        <Calendar className="w-4 h-4" />
                         <span>{formatDate(event.date)}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
+                      <div className="flex items-center gap-2 text-gray-400 text-sm">
+                        <MapPin className="w-4 h-4" />
                         <span>{event.location}</span>
                       </div>
                       {event.prize && (
-                        <div className="flex items-center gap-2 font-medium text-[#4C6EF5]">
-                          <Award className="h-4 w-4" />
+                        <div className="flex items-center gap-2 text-[#4C6EF5] text-sm font-medium">
+                          <Award className="w-4 h-4" />
                           <span>{event.prize}</span>
                         </div>
                       )}
                     </div>
 
-                    {event.tags?.length > 0 && (
+                    {event.tags && event.tags.length > 0 && (
                       <div className="flex flex-wrap gap-2">
                         {event.tags.slice(0, 3).map((tag, idx) => (
-                          <span key={idx} className="rounded-full bg-gray-800 px-3 py-1 text-xs text-gray-300">
+                          <span
+                            key={idx}
+                            className="bg-gray-800 text-gray-300 px-3 py-1 rounded-full text-xs"
+                          >
                             {tag}
                           </span>
                         ))}
@@ -292,45 +322,60 @@ export function FeedTab() {
                     <div className="space-y-2">
                       <button
                         onClick={() => openModal(event)}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] py-3 font-semibold text-white transition-opacity hover:opacity-90"
+                        className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white hover:opacity-90 transition-opacity"
                       >
-                        <Eye className="h-4 w-4" />
+                        <Eye className="w-4 h-4" />
                         View Details
                       </button>
-
-                      <button
-                        onClick={() => handleApply(event.id, event)}
-                        disabled={isApplied}
-                        className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold transition-all ${
-                          isApplied
-                            ? 'cursor-not-allowed bg-gray-700 text-gray-400'
-                            : 'bg-[#0B0C10] text-white border border-gray-700 hover:border-gray-600'
-                        }`}
-                      >
-                        {isApplied ? 'Applied' : (
-                          <>
-                            <Send className="h-4 w-4" />
-                            Apply
-                          </>
-                        )}
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleApply(event.id, event)}
+                          disabled={isApplied}
+                          className={`flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
+                            isApplied
+                              ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                              : 'bg-[#0B0C10] text-white border border-gray-700 hover:border-gray-600'
+                          }`}
+                        >
+                          {isApplied ? (
+                            'Applied'
+                          ) : (
+                            <>
+                              <Send className="w-4 h-4" />
+                              Apply
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
               );
             })}
 
-            <div className="flex items-center justify-center gap-3 pt-4 pb-2">
-              {loading ? (
-                <span className="text-gray-400">Loading...</span>
-              ) : (
-                <button
-                  onClick={() => setCurrentPage((p) => p + 1)}
-                  className="rounded-xl bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] px-8 py-3 font-semibold text-white transition-opacity hover:opacity-90"
-                >
-                  Next Page
-                </button>
-              )}
+            {/* Pagination */}
+            <div className="flex flex-col items-center justify-center gap-3 pt-6 pb-8">
+              <p className="text-gray-400 text-sm">
+                Page {currentPage + 1} of {totalPages || 1}
+              </p>
+              <div className="flex gap-3">
+                {currentPage > 0 && (
+                  <button
+                    onClick={() => setCurrentPage((p) => p - 1)}
+                    className="rounded-xl bg-[#1a1d29] px-6 py-3 font-semibold text-white border border-gray-700 hover:border-gray-500 transition-colors"
+                  >
+                    Previous Page
+                  </button>
+                )}
+                {currentPage + 1 < totalPages && (
+                  <button
+                    onClick={() => setCurrentPage((p) => p + 1)}
+                    className="rounded-xl bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] px-8 py-3 font-semibold text-white transition-opacity hover:opacity-90"
+                  >
+                    Next Page
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}
