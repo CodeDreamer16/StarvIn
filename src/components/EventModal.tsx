@@ -1,5 +1,6 @@
-import { X, Calendar, MapPin, Award, ExternalLink } from 'lucide-react';
-import { useEffect } from 'react';
+import { X, Calendar, MapPin, Award, ExternalLink } from "lucide-react";
+import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 interface Event {
   id: string;
@@ -23,153 +24,155 @@ interface EventModalProps {
 }
 
 export function EventModal({ event, isOpen, onClose }: EventModalProps) {
+  // lock page scroll while modal is open
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
     }
-
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
   }, [isOpen]);
 
+  // close on Escape
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
     };
-
-    if (isOpen) {
-      window.addEventListener('keydown', handleEscape);
-    }
-
-    return () => {
-      window.removeEventListener('keydown', handleEscape);
-    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
   }, [isOpen, onClose]);
 
   if (!isOpen || !event) return null;
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
+    const d = new Date(dateString);
+    return d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
       hour12: true,
     });
   };
 
-  return (
+  const modal = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn"
       role="dialog"
       aria-modal="true"
-      onClick={onClose}
     >
-      {/* dark blur backdrop */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
-  
-      {/* centered modal */}
+      {/* Backdrop */}
+      <button
+        aria-label="Close"
+        onClick={onClose}
+        className="fixed inset-0 bg-black/70 backdrop-blur-md cursor-default"
+      />
+
+      {/* Modal container */}
       <div
-        className="relative z-10 w-full max-w-2xl overflow-hidden rounded-3xl border border-gray-800 bg-[#1a1d29] shadow-2xl animate-slideUp"
+        className="relative w-full max-w-2xl overflow-hidden rounded-3xl border border-gray-800 bg-[#1a1d29] shadow-2xl animate-slideUp"
+        style={{ maxHeight: "90vh", display: "flex", flexDirection: "column" }}
         onClick={(e) => e.stopPropagation()}
-        style={{
-          maxHeight: "90vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
       >
+        {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 bg-black/50 backdrop-blur-sm p-2 rounded-full hover:bg-black/70 transition-colors"
+          className="absolute right-4 top-4 z-10 rounded-full bg-black/50 p-2 backdrop-blur-sm transition-colors hover:bg-black/70"
         >
-          <X className="w-6 h-6 text-white" />
+          <X className="h-6 w-6 text-white" />
         </button>
 
+        {/* Header image */}
         <div
-          className="h-64 bg-cover bg-center relative rounded-t-3xl"
+          className="relative h-56 w-full bg-cover bg-center md:h-64"
           style={{
-            backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.6)), url(${event.image_url})`,
+            backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.6)), url(${event.image_url || ""})`,
           }}
         >
           <div className="absolute bottom-4 left-6">
-            <span className="bg-[#4C6EF5] text-white px-4 py-1.5 rounded-full text-sm font-semibold">
-              {event.event_type}
-            </span>
+            {event.event_type ? (
+              <span className="rounded-full bg-[#4C6EF5] px-4 py-1.5 text-sm font-semibold text-white">
+                {event.event_type}
+              </span>
+            ) : null}
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
-          <div>
-            <h2 className="text-3xl font-bold text-white mb-2">{event.title}</h2>
-            {event.organization && (
-              <p className="text-gray-400 text-lg">{event.organization}</p>
-            )}
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-start gap-3 text-gray-300">
-              <Calendar className="w-5 h-5 mt-0.5 flex-shrink-0 text-[#4C6EF5]" />
-              <span>{formatDate(event.date)}</span>
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="space-y-6">
+            <div>
+              <h2 className="mb-2 text-3xl font-bold text-white">{event.title}</h2>
+              {event.organization && (
+                <p className="text-lg text-gray-400">{event.organization}</p>
+              )}
             </div>
 
-            <div className="flex items-start gap-3 text-gray-300">
-              <MapPin className="w-5 h-5 mt-0.5 flex-shrink-0 text-[#4C6EF5]" />
-              <span>{event.location}</span>
-            </div>
-
-            {event.prize && (
-              <div className="flex items-start gap-3 text-[#4C6EF5] font-medium">
-                <Award className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                <span>{event.prize}</span>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 text-gray-300">
+                <Calendar className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#4C6EF5]" />
+                <span>{formatDate(event.date)}</span>
               </div>
-            )}
-          </div>
 
-          <div className="border-t border-gray-800 pt-6">
-            <h3 className="text-lg font-semibold text-white mb-3">About This Event</h3>
-            <p className="text-gray-300 leading-relaxed whitespace-pre-line">
-              {event.description}
-            </p>
-          </div>
-
-          {event.tags && event.tags.length > 0 && (
-            <div className="border-t border-gray-800 pt-6">
-              <h3 className="text-lg font-semibold text-white mb-3">Tags</h3>
-              <div className="flex flex-wrap gap-2">
-                {event.tags.map((tag, idx) => (
-                  <span
-                    key={idx}
-                    className="bg-gray-800 text-gray-300 px-4 py-1.5 rounded-full text-sm"
-                  >
-                    {tag}
-                  </span>
-                ))}
+              <div className="flex items-start gap-3 text-gray-300">
+                <MapPin className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#4C6EF5]" />
+                <span>{event.location}</span>
               </div>
-            </div>
-          )}
 
-          {event.link && (
-            <div className="border-t border-gray-800 pt-6">
-              <a
-                href={event.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-4 rounded-xl font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white hover:opacity-90 transition-opacity"
-              >
-                <ExternalLink className="w-5 h-5" />
-                Open in Browser
-              </a>
+              {event.prize ? (
+                <div className="flex items-start gap-3 font-medium text-[#4C6EF5]">
+                  <Award className="mt-0.5 h-5 w-5 flex-shrink-0" />
+                  <span>{event.prize}</span>
+                </div>
+              ) : null}
             </div>
-          )}
+
+            <div className="border-t border-gray-800 pt-6">
+              <h3 className="mb-3 text-lg font-semibold text-white">About This Event</h3>
+              <p className="whitespace-pre-line leading-relaxed text-gray-300">
+                {event.description}
+              </p>
+            </div>
+
+            {event.tags?.length ? (
+              <div className="border-t border-gray-800 pt-6">
+                <h3 className="mb-3 text-lg font-semibold text-white">Tags</h3>
+                <div className="flex flex-wrap gap-2">
+                  {event.tags.map((tag, i) => (
+                    <span
+                      key={`${tag}-${i}`}
+                      className="rounded-full bg-gray-800 px-4 py-1.5 text-sm text-gray-300"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {event.link ? (
+              <div className="border-t border-gray-800 pt-6">
+                <a
+                  href={event.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] py-4 font-semibold text-white transition-opacity hover:opacity-90"
+                >
+                  <ExternalLink className="h-5 w-5" />
+                  Open in Browser
+                </a>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>
   );
+
+  // render outside any transformed/overflow-hidden parents
+  return createPortal(modal, document.body);
 }
