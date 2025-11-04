@@ -121,7 +121,7 @@ export function FeedTab() {
         : pageEvents || [];
 
       // Append instead of replace
-      setEvents((prev) => (page === 0 ? filtered : [...prev, ...filtered]));
+      setEvents(filtered);
     } catch (err) {
       console.error('Error loading events:', err);
     } finally {
