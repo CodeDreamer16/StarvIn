@@ -99,17 +99,22 @@ export function FeedTab() {
     document.querySelectorAll('[data-event-card]').forEach((el) => observerRef.current?.observe(el));
   }, [events, page]);
 
-  // scroll to top smoothly when page changes
+  // Smoothly scroll to top after pagination changes
   useEffect(() => {
-    if (!containerRef.current) return;
     const el = containerRef.current;
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        el.scrollTo({ top: 0, behavior: 'smooth' });
-        setVisible(new Set());
-      }, 150);
-    });
-  }, [page]);
+    if (!el) return;
+  
+    // Wait until the new events have actually rendered
+    const scrollTimeout = setTimeout(() => {
+      el.scrollTo({ top: 0, behavior: 'smooth' });
+  
+      // Reset animations for fade-in again
+      setVisible(new Set());
+    }, 400); // ← longer delay ensures DOM and layout are ready
+  
+    return () => clearTimeout(scrollTimeout);
+  }, [page, events]);
+  
 
   const loadEvents = async () => {
     setLoading(true);
