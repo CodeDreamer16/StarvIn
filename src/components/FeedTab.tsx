@@ -135,7 +135,7 @@ export function FeedTab() {
       // Filter events by matching category case-insensitively
       const matched = allEvents.filter((event) => {
         const type = event.event_type?.trim().toLowerCase();
-        return interests.some((interest) => type.includes(interest));
+        return interests.some((interest) => type === interest);
       });
   
       setEvents(matched);
