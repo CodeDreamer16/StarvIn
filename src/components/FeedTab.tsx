@@ -7,11 +7,11 @@ import { EventModal } from './EventModal';
 interface Event {
   id: string;
   title: string;
-  description: string | null;
+  description: string;
   event_type: string | null;
   organization: string | null;
   location: string | null;
-  date: string;
+  date: string;                 // ISO string in DB
   deadline: string | null;
   image_url: string | null;
   prize: string | null;
@@ -22,136 +22,200 @@ interface Event {
 interface SavedEvent { event_id: string }
 interface Application { event_id: string }
 
+/** 🔎 Interest → keyword map (expandable) */
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  'Wellness & Mental Health': ['wellness','mental','therapy','yoga','stress','anxiety','mindfulness','meditation','counsel','support','health','well-being'],
-  'Career & Professional Development': ['career','linkedin','resume','interview','job','intern','networking','recruit','employer','negotiation','cover letter'],
-  'Workshops & Skill Building': ['workshop','training','tutorial','learn','skill','session','seminar','bootcamp','hands-on'],
-  'Social & Community Events': ['social','community','party','mixer','network','hangout','gathering','club','society','meetup'],
-  'Arts & Creative Activities': ['art','creative','music','craft','crochet','film','photography','painting','dance','performance','studio'],
-  'Academic Support & Research': ['academic','research','study','writing','thesis','library','citation','apa','grad','graduate','phd'],
-  'International Student Services': ['international','immigration','visa','iss','caq','passport','newcomer','global'],
-  'Leadership & Personal Growth': ['leadership','leader','growth','development','coach','mindset','emerging','self','improvement']
+  'Wellness & Mental Health': [
+    'wellness','mental','therapy','yoga','stress','anxiety','support group','mindfulness','meditation','health','well-being','wellbeing','care'
+  ],
+  'Career & Professional Development': [
+    'career','job','internship','resume','cv','linkedin','recruit','network','networking','employer','interview','negotiation','workshop career'
+  ],
+  'Workshops & Skill Building': [
+    'workshop','skill','training','tutorial','learn','skillsets','certificate','session','hands-on','how to','seminar'
+  ],
+  'Social & Community Events': [
+    'social','community','mixer','meetup','gathering','party','network','connect','hangout','celebration','circle'
+  ],
+  'Arts & Creative Activities': [
+    'art','creative','hive','studio','crochet','craft','drawing','painting','music','film','theatre','photography'
+  ],
+  'Academic Support & Research': [
+    'academic','research','library','thesis','phd','masters','dissertation','citation','apa','study tips','writing','grad'
+  ],
+  'International Student Services': [
+    'international','immigration','iss','visa','study permit','caq','global','newcomer','intercultural'
+  ],
+  'Leadership & Personal Growth': [
+    'leadership','leader','personal growth','mindset','emerging leaders','development','imposter syndrome','coach'
+  ],
 };
 
-// helpers
+/** Helpers */
 const stripHTML = (html?: string | null) =>
-  (html ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  (html ?? '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 const normalize = (s?: string | null) =>
-  (s ?? '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  (s ?? '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
-const matchesByInterest = (event: Event, interests: string[]) => {
-  const text = normalize(`${event.title ?? ''} ${stripHTML(event.description)} ${event.organization ?? ''}`);
-  const type = normalize(event.event_type);
+/** Match event to any of the selected interests using keywords and event_type fallback */
+const matchesByInterests = (ev: Event, interests: string[]) => {
+  const text = normalize(
+    `${ev.title} ${stripHTML(ev.description)} ${ev.event_type ?? ''} ${ev.organization ?? ''}`
+  );
+
+  // Try keyword matching first
   for (const interest of interests) {
-    const kws = CATEGORY_KEYWORDS[interest] ?? [];
-    for (const kw of kws) {
-      const norm = normalize(kw);
-      if (text.includes(norm) || type.includes(norm)) return true;
+    const kw = CATEGORY_KEYWORDS[interest] ?? [];
+    if (kw.length) {
+      for (const word of kw) {
+        if (text.includes(normalize(word))) return true;
+      }
     }
-    if (type.includes(normalize(interest))) return true;
   }
+
+  // Fallback: compare normalized interest name with event_type
+  const typeNorm = normalize(ev.event_type);
+  if (typeNorm) {
+    for (const interest of interests) {
+      if (typeNorm.includes(normalize(interest))) return true;
+    }
+  }
+
   return false;
 };
 
 export function FeedTab() {
-  const { user } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
-  const [saved, setSaved] = useState<Set<string>>(new Set());
-  const [applied, setApplied] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(0);
+  const eventsPerPage = 10;
+
+  const [savedEvents, setSavedEvents] = useState<Set<string>>(new Set());
+  const [appliedEvents, setAppliedEvents] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [visible, setVisible] = useState<Set<string>>(new Set());
-  const [page, setPage] = useState(0);
-  const perPage = 10;
-  const [modalEvent, setModalEvent] = useState<Event | null>(null);
-  const [open, setOpen] = useState(false);
+  const [visibleCards, setVisibleCards] = useState<Set<string>>(new Set());
+
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const { user } = useAuth();
 
-  // init
+  /** Load feed whenever user changes */
   useEffect(() => {
-    if (user) {
-      loadEvents();
-      loadUserData();
-      setPage(0);
-      setVisible(new Set());
-    }
+    loadEventsWithPreferences();
+    loadUserData();
+    // reset paging and animation state
+    setCurrentPage(0);
+    setVisibleCards(new Set());
   }, [user]);
 
-  // intersection observer
+  /** Set up fade/slide observer */
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          const id = entry.target.getAttribute('id');
+          const id = entry.target.getAttribute('id') ?? '';
           if (entry.isIntersecting && id) {
-            setVisible((prev) => new Set(prev).add(id));
+            setVisibleCards((prev) => {
+              const next = new Set(prev);
+              next.add(id);
+              return next;
+            });
           }
         });
       },
-      { threshold: 0.1, rootMargin: '80px' }
+      { threshold: 0.12, rootMargin: '60px' }
     );
     return () => observerRef.current?.disconnect();
   }, []);
 
+  /** Re-observe cards when page/events change (to re-trigger animation each page) */
   useEffect(() => {
     observerRef.current?.disconnect();
-    document.querySelectorAll('[data-event-card]').forEach((el) => observerRef.current?.observe(el));
-  }, [events, page]);
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const id = entry.target.getAttribute('id') ?? '';
+          if (entry.isIntersecting && id) {
+            setVisibleCards((prev) => {
+              const next = new Set(prev);
+              next.add(id);
+              return next;
+            });
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: '60px' }
+    );
+    document.querySelectorAll('[data-event-card]').forEach((el) => {
+      observerRef.current?.observe(el);
+    });
+  }, [events, currentPage]);
 
-  // Smoothly scroll to top after pagination changes
+  /** Smooth scroll to top when paging */
   useEffect(() => {
+    if (!containerRef.current) return;
     const el = containerRef.current;
-    if (!el) return;
-  
-    // Wait until the new events have actually rendered
-    const scrollTimeout = setTimeout(() => {
-      el.scrollTo({ top: 0, behavior: 'smooth' });
-  
-      // Reset animations for fade-in again
-      setVisible(new Set());
-    }, 200); // ← longer delay ensures DOM and layout are ready
-  
-    return () => clearTimeout(scrollTimeout);
-  }, [page, events]);
-  
+    el.scrollTo({ top: 0, behavior: 'smooth' });
+    // reset animation flags for fresh fade-in on each page
+    setVisibleCards(new Set());
+  }, [currentPage]);
 
-  const loadEvents = async () => {
+  const loadEventsWithPreferences = async () => {
     setLoading(true);
     try {
-      const { data: prefs } = await supabase
-        .from('user_preferences')
-        .select('interest_name')
-        .eq('user_id', user?.id);
-
-      const { data: allEvents } = await supabase
-        .from('events')
-        .select('*')
-        .order('date', { ascending: true });
-
-      if (!allEvents) {
+      if (!user) {
         setEvents([]);
         setLoading(false);
         return;
       }
 
+      // 1) Get user interests
+      const { data: prefs, error: prefError } = await supabase
+        .from('user_preferences')
+        .select('interest_name')
+        .eq('user_id', user.id);
+
+      if (prefError) throw prefError;
+
+      const interests = (prefs ?? []).map((p) => p.interest_name).filter(Boolean) as string[];
+
+      // 2) Load events (order ascending by date) & keep only upcoming
+      const { data: allEvents, error: eventsError } = await supabase
+        .from('events')
+        .select('*')
+        .order('date', { ascending: true });
+
+      if (eventsError) throw eventsError;
+
       const now = new Date();
-      const upcoming = allEvents.filter((e) => {
+      const upcoming = (allEvents ?? []).filter((e) => {
         const d = new Date(e.date);
         return !isNaN(d.getTime()) && d >= now;
       });
 
-      if (!prefs?.length) {
+      // 3) If user has no interests, show nothing (or show all—your call). We’ll show nothing for now.
+      if (!interests.length) {
         setEvents(upcoming);
         setLoading(false);
         return;
       }
 
-      const interests = prefs.map((p) => p.interest_name);
-      const filtered = upcoming.filter((e) => matchesByInterest(e, interests));
+      // 4) Keyword-based filtering
+      const filtered = upcoming.filter((ev) => matchesByInterests(ev, interests));
+
       setEvents(filtered);
     } catch (err) {
-      console.error('loadEvents error:', err);
+      console.error('Error loading events:', err);
       setEvents([]);
     } finally {
       setLoading(false);
@@ -159,52 +223,80 @@ export function FeedTab() {
   };
 
   const loadUserData = async () => {
+    if (!user) return;
     try {
-      const [s, a] = await Promise.all([
-        supabase.from('saved_events').select('event_id').eq('user_id', user?.id),
-        supabase.from('applications').select('event_id').eq('user_id', user?.id),
+      const [savedResponse, appliedResponse] = await Promise.all([
+        supabase.from('saved_events').select('event_id').eq('user_id', user.id),
+        supabase.from('applications').select('event_id').eq('user_id', user.id),
       ]);
-      if (s.data) setSaved(new Set(s.data.map((x) => x.event_id)));
-      if (a.data) setApplied(new Set(a.data.map((x) => x.event_id)));
+      if (savedResponse.data) {
+        setSavedEvents(new Set(savedResponse.data.map((s: SavedEvent) => s.event_id)));
+      }
+      if (appliedResponse.data) {
+        setAppliedEvents(new Set(appliedResponse.data.map((a: Application) => a.event_id)));
+      }
     } catch (e) {
-      console.error('loadUserData error:', e);
+      console.error('Error loading user data:', e);
     }
   };
 
-  const handleApply = async (id: string, e: Event) => {
-    if (applied.has(id)) return;
-    await supabase.from('applications').insert({ user_id: user?.id, event_id: id, status: 'applied' });
-    setApplied((p) => new Set(p).add(id));
-    const start = new Date(e.date);
+  const handleSave = async (eventId: string) => {
+    if (!user) return;
+    try {
+      if (savedEvents.has(eventId)) {
+        await supabase.from('saved_events').delete().eq('user_id', user.id).eq('event_id', eventId);
+        setSavedEvents((prev) => {
+          const next = new Set(prev);
+          next.delete(eventId);
+          return next;
+        });
+      } else {
+        await supabase.from('saved_events').insert({ user_id: user.id, event_id: eventId });
+        setSavedEvents((prev) => new Set(prev).add(eventId));
+      }
+    } catch (e) {
+      console.error('Error saving event:', e);
+    }
+  };
+
+  const addToGoogleCalendar = (event: Event) => {
+    const start = new Date(event.date);
     const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
     const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    window.open(
-      `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
-        e.title
-      )}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(stripHTML(e.description))}&location=${encodeURIComponent(
-        e.location ?? ''
-      )}`,
-      '_blank'
-    );
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
+      event.title
+    )}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(
+      stripHTML(event.description)
+    )}&location=${encodeURIComponent(event.location ?? '')}`;
+    window.open(url, '_blank');
   };
 
-  const handleSave = async (id: string) => {
-    if (saved.has(id)) {
-      await supabase.from('saved_events').delete().eq('user_id', user?.id).eq('event_id', id);
-      setSaved((p) => {
-        const n = new Set(p);
-        n.delete(id);
-        return n;
-      });
-    } else {
-      await supabase.from('saved_events').insert({ user_id: user?.id, event_id: id });
-      setSaved((p) => new Set(p).add(id));
+  const handleApply = async (eventId: string, event: Event) => {
+    if (!user || appliedEvents.has(eventId)) return;
+    try {
+      await supabase.from('applications').insert({ user_id: user.id, event_id: eventId, status: 'applied' });
+      setAppliedEvents((prev) => new Set(prev).add(eventId));
+      addToGoogleCalendar(event);
+    } catch (e) {
+      console.error('Error applying to event:', e);
     }
   };
 
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(events.length / perPage)), [events.length]);
-  const slice = useMemo(() => events.slice(page * perPage, page * perPage + perPage), [events, page]);
-  const fmt = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  const openModal = (ev: Event) => { setSelectedEvent(ev); setIsModalOpen(true); };
+  const closeModal = () => { setIsModalOpen(false); setTimeout(() => setSelectedEvent(null), 250); };
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(events.length / eventsPerPage)),
+    [events.length]
+  );
+
+  const pageSlice = useMemo(() => {
+    const start = currentPage * eventsPerPage;
+    return events.slice(start, start + eventsPerPage);
+  }, [events, currentPage]);
 
   return (
     <>
@@ -216,105 +308,131 @@ export function FeedTab() {
 
         {loading ? (
           <div className="flex items-center justify-center h-48 text-white">Loading events...</div>
-        ) : slice.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 px-8 text-center text-gray-400">
-            No events match your preferences.
+        ) : events.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 px-8">
+            <p className="text-gray-400 text-center mb-2">No upcoming events match your interests right now.</p>
+            <p className="text-gray-500 text-sm text-center">Try updating your preferences to discover more events!</p>
           </div>
         ) : (
           <div className="px-4 space-y-4 pb-4">
-            {slice.map((e, i) => {
-              const id = `event-${e.id}`;
-              const vis = visible.has(id);
+            {pageSlice.map((event, idx) => {
+              const isSaved = savedEvents.has(event.id);
+              const isApplied = appliedEvents.has(event.id);
+              const cardId = `event-${event.id}`;
+              const visible = visibleCards.has(cardId);
+
               return (
                 <div
-                  key={e.id}
-                  id={id}
+                  key={event.id}
+                  id={cardId}
                   data-event-card
-                  className={`bg-[#1a1d29] rounded-3xl overflow-hidden border border-gray-800 hover:border-gray-700 transition-all duration-500 ${
-                    vis ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-                  }`}
-                  style={{ transitionDelay: `${i * 35}ms` }}
+                  className={`bg-[#1a1d29] rounded-3xl overflow-hidden border border-gray-800 hover:border-gray-700 transition-all duration-500
+                    ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+                  style={{ transitionDelay: `${idx * 35}ms` }}
                 >
                   <div
                     className="h-48 bg-cover bg-center relative"
                     style={{
-                      backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.25), rgba(0,0,0,0.7)), url(${e.image_url ?? ''})`,
+                      backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.6)), url(${event.image_url ?? ''})`,
                     }}
                   >
-                    {e.event_type && (
+                    {event.event_type && (
                       <div className="absolute top-4 left-4">
                         <span className="bg-[#4C6EF5] text-white px-3 py-1 rounded-full text-xs font-semibold">
-                          {e.event_type}
+                          {event.event_type}
                         </span>
                       </div>
                     )}
                     <button
-                      onClick={() => handleSave(e.id)}
-                      className="absolute top-4 right-4 bg-black/50 p-2 rounded-full hover:bg-black/70 transition-colors"
+                      onClick={() => handleSave(event.id)}
+                      className="absolute top-4 right-4 bg-black/50 backdrop-blur-sm p-2 rounded-full hover:bg-black/70 transition-colors"
                     >
-                      <Bookmark className={`w-5 h-5 ${saved.has(e.id) ? 'fill-[#4C6EF5] text-[#4C6EF5]' : 'text-white'}`} />
+                      <Bookmark className={`w-5 h-5 ${isSaved ? 'fill-[#4C6EF5] text-[#4C6EF5]' : 'text-white'}`} />
                     </button>
                   </div>
 
                   <div className="p-5 space-y-3">
                     <div>
-                      <h3 className="text-xl font-bold text-white mb-1">{e.title}</h3>
-                      {e.organization && <p className="text-gray-400 text-sm">{e.organization}</p>}
+                      <h3 className="text-xl font-bold text-white mb-1">{event.title}</h3>
+                      {event.organization && <p className="text-gray-400 text-sm">{event.organization}</p>}
                     </div>
 
-                    <p className="text-gray-300 text-sm line-clamp-2">{stripHTML(e.description)}</p>
+                    <p className="text-gray-300 text-sm line-clamp-2">{stripHTML(event.description)}</p>
 
-                    <div className="space-y-1 text-sm text-gray-400">
-                      <div className="flex items-center gap-2"><Calendar className="w-4 h-4" />{fmt(e.date)}</div>
-                      <div className="flex items-center gap-2"><MapPin className="w-4 h-4" />{e.location ?? 'McGill University'}</div>
-                      {e.prize && (
-                        <div className="flex items-center gap-2 text-[#4C6EF5] font-medium">
-                          <Award className="w-4 h-4" />{e.prize}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-gray-400 text-sm">
+                        <Calendar className="w-4 h-4" />
+                        <span>{formatDate(event.date)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-gray-400 text-sm">
+                        <MapPin className="w-4 h-4" />
+                        <span>{event.location ?? 'McGill University'}</span>
+                      </div>
+                      {event.prize && (
+                        <div className="flex items-center gap-2 text-[#4C6EF5] text-sm font-medium">
+                          <Award className="w-4 h-4" />
+                          <span>{event.prize}</span>
                         </div>
                       )}
                     </div>
 
+                    {event.tags?.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {event.tags.slice(0, 3).map((tag, idx) => (
+                          <span key={idx} className="bg-gray-800 text-gray-300 px-3 py-1 rounded-full text-xs">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+
                     <div className="space-y-2">
                       <button
-                        onClick={() => { setModalEvent(e); setOpen(true); }}
-                        className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white hover:opacity-90"
+                        onClick={() => openModal(event)}
+                        className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white hover:opacity-90 transition-opacity"
                       >
-                        <Eye className="w-4 h-4" />View Details
+                        <Eye className="w-4 h-4" />
+                        View Details
                       </button>
-                      <button
-                        onClick={() => handleApply(e.id, e)}
-                        disabled={applied.has(e.id)}
-                        className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
-                          applied.has(e.id)
-                            ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                            : 'bg-[#0B0C10] text-white border border-gray-700 hover:border-gray-600'
-                        }`}
-                      >
-                        {applied.has(e.id) ? 'Applied' : (<><Send className="w-4 h-4" />Apply</>)}
-                      </button>
+
+                      <div className="flex gap-2">
+                        {/* You said Add to Calendar is redundant; keep Apply only if you prefer */}
+                        <button
+                          onClick={() => handleApply(event.id, event)}
+                          disabled={isApplied}
+                          className={`flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
+                            isApplied
+                              ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                              : 'bg-[#0B0C10] text-white border border-gray-700 hover:border-gray-600'
+                          }`}
+                        >
+                          {isApplied ? 'Applied' : (<><Send className="w-4 h-4" />Apply</>)}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
               );
             })}
 
-            {events.length > perPage && (
+            {/* Pagination */}
+            {events.length > eventsPerPage && (
               <div className="flex items-center justify-center gap-3 pt-4 pb-2">
-                <p className="text-gray-400 text-sm">Page {page + 1} of {totalPages}</p>
-                {page > 0 && (
+                <p className="text-gray-400 text-sm">Page {currentPage + 1} of {totalPages}</p>
+                {currentPage > 0 && (
                   <button
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
-                    className="bg-[#1a1d29] text-white px-6 py-3 rounded-xl hover:bg-[#252837] border border-gray-700"
+                    onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                    className="bg-[#1a1d29] text-white font-semibold px-6 py-3 rounded-xl hover:bg-[#252837] transition-colors border border-gray-700"
                   >
                     Previous
                   </button>
                 )}
-                {page + 1 < totalPages && (
+                {currentPage + 1 < totalPages && (
                   <button
-                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                    className="bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white px-8 py-3 rounded-xl hover:opacity-90"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                    className="bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white font-semibold px-8 py-3 rounded-xl hover:opacity-90 transition-opacity"
                   >
-                    Next
+                    Next Page
                   </button>
                 )}
               </div>
@@ -323,7 +441,7 @@ export function FeedTab() {
         )}
       </div>
 
-      <EventModal event={modalEvent} isOpen={open} onClose={() => setOpen(false)} />
+      <EventModal event={selectedEvent} isOpen={isModalOpen} onClose={closeModal} />
     </>
   );
 }
