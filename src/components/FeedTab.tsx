@@ -7,7 +7,7 @@ import { EventModal } from './EventModal';
 interface Event {
   id: string;
   title: string;
-  description: string;
+  description: string | null;
   event_type: string | null;
   organization: string | null;
   location: string | null;
@@ -22,35 +22,32 @@ interface Event {
 interface SavedEvent { event_id: string }
 interface Application { event_id: string }
 
-/* Keywords */
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  'Wellness & Mental Health': ['wellness','mental health','therapy','yoga','stress','anxiety','mindfulness','meditation','counsel','support','well-being'],
+  'Wellness & Mental Health': ['wellness','mental','therapy','yoga','stress','anxiety','mindfulness','meditation','counsel','support','health','well-being'],
   'Career & Professional Development': ['career','linkedin','resume','interview','job','intern','networking','recruit','employer','negotiation','cover letter'],
   'Workshops & Skill Building': ['workshop','training','tutorial','learn','skill','session','seminar','bootcamp','hands-on'],
   'Social & Community Events': ['social','community','party','mixer','network','hangout','gathering','club','society','meetup'],
   'Arts & Creative Activities': ['art','creative','music','craft','crochet','film','photography','painting','dance','performance','studio'],
   'Academic Support & Research': ['academic','research','study','writing','thesis','library','citation','apa','grad','graduate','phd'],
   'International Student Services': ['international','immigration','visa','iss','caq','passport','newcomer','global'],
-  'Leadership & Personal Growth': ['leadership','leader','growth','development','coach','mindset','emerging leader','self improvement']
+  'Leadership & Personal Growth': ['leadership','leader','growth','development','coach','mindset','emerging','self','improvement']
 };
 
-/* Helper normalization */
-const normalize = (t?: string | null) =>
-  (t ?? '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+// helpers
+const stripHTML = (html?: string | null) =>
+  (html ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
-const stripHTML = (h?: string | null) =>
-  (h ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+const normalize = (s?: string | null) =>
+  (s ?? '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 
-/* Matching */
-const matchesByInterest = (ev: Event, interests: string[]) => {
-  const text = normalize(`${ev.title} ${stripHTML(ev.description)} ${ev.organization ?? ''}`);
-  const type = normalize(ev.event_type);
-
+const matchesByInterest = (event: Event, interests: string[]) => {
+  const text = normalize(`${event.title ?? ''} ${stripHTML(event.description)} ${event.organization ?? ''}`);
+  const type = normalize(event.event_type);
   for (const interest of interests) {
     const kws = CATEGORY_KEYWORDS[interest] ?? [];
     for (const kw of kws) {
-      const n = normalize(kw);
-      if (text.split(/\b/).includes(n) || type.includes(n)) return true;
+      const norm = normalize(kw);
+      if (text.includes(norm) || type.includes(norm)) return true;
     }
     if (type.includes(normalize(interest))) return true;
   }
@@ -60,7 +57,7 @@ const matchesByInterest = (ev: Event, interests: string[]) => {
 export function FeedTab() {
   const { user } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
-  const [savedEvents, setSaved] = useState<Set<string>>(new Set());
+  const [saved, setSaved] = useState<Set<string>>(new Set());
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [visible, setVisible] = useState<Set<string>>(new Set());
@@ -69,9 +66,9 @@ export function FeedTab() {
   const [modalEvent, setModalEvent] = useState<Event | null>(null);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const observer = useRef<IntersectionObserver | null>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
-  /* Load everything */
+  // init
   useEffect(() => {
     if (user) {
       loadEvents();
@@ -81,37 +78,37 @@ export function FeedTab() {
     }
   }, [user]);
 
-  /* Intersection fade */
+  // intersection observer
   useEffect(() => {
-    observer.current = new IntersectionObserver(
+    observerRef.current = new IntersectionObserver(
       (entries) => {
-        entries.forEach((e) => {
-          const id = e.target.getAttribute('id') ?? '';
-          if (e.isIntersecting && id)
-            setVisible((p) => {
-              const n = new Set(p);
-              n.add(id);
-              return n;
-            });
+        entries.forEach((entry) => {
+          const id = entry.target.getAttribute('id');
+          if (entry.isIntersecting && id) {
+            setVisible((prev) => new Set(prev).add(id));
+          }
         });
       },
-      { threshold: 0.12, rootMargin: '60px' }
+      { threshold: 0.1, rootMargin: '80px' }
     );
-    return () => observer.current?.disconnect();
+    return () => observerRef.current?.disconnect();
   }, []);
 
   useEffect(() => {
-    observer.current?.disconnect();
-    document.querySelectorAll('[data-event-card]').forEach((el) => observer.current?.observe(el));
+    observerRef.current?.disconnect();
+    document.querySelectorAll('[data-event-card]').forEach((el) => observerRef.current?.observe(el));
   }, [events, page]);
 
-  /* smooth scroll top when page changes */
+  // scroll to top smoothly when page changes
   useEffect(() => {
     if (!containerRef.current) return;
-    setTimeout(() => {
-      containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-      setVisible(new Set());
-    }, 120);
+    const el = containerRef.current;
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        el.scrollTo({ top: 0, behavior: 'smooth' });
+        setVisible(new Set());
+      }, 150);
+    });
   }, [page]);
 
   const loadEvents = async () => {
@@ -127,21 +124,29 @@ export function FeedTab() {
         .select('*')
         .order('date', { ascending: true });
 
-      if (!prefs?.length || !allEvents?.length) {
-        setEvents(allEvents ?? []);
+      if (!allEvents) {
+        setEvents([]);
         setLoading(false);
         return;
       }
 
       const now = new Date();
-      const filtered = allEvents.filter((ev) => {
-        const d = new Date(ev.date);
-        return d >= now && matchesByInterest(ev, prefs.map((p) => p.interest_name));
+      const upcoming = allEvents.filter((e) => {
+        const d = new Date(e.date);
+        return !isNaN(d.getTime()) && d >= now;
       });
 
+      if (!prefs?.length) {
+        setEvents(upcoming);
+        setLoading(false);
+        return;
+      }
+
+      const interests = prefs.map((p) => p.interest_name);
+      const filtered = upcoming.filter((e) => matchesByInterest(e, interests));
       setEvents(filtered);
-    } catch (e) {
-      console.error('load error', e);
+    } catch (err) {
+      console.error('loadEvents error:', err);
       setEvents([]);
     } finally {
       setLoading(false);
@@ -157,23 +162,23 @@ export function FeedTab() {
       if (s.data) setSaved(new Set(s.data.map((x) => x.event_id)));
       if (a.data) setApplied(new Set(a.data.map((x) => x.event_id)));
     } catch (e) {
-      console.error('userdata', e);
+      console.error('loadUserData error:', e);
     }
   };
 
-  const handleApply = async (id: string, ev: Event) => {
+  const handleApply = async (id: string, e: Event) => {
     if (applied.has(id)) return;
     await supabase.from('applications').insert({ user_id: user?.id, event_id: id, status: 'applied' });
     setApplied((p) => new Set(p).add(id));
-    const start = new Date(ev.date);
+    const start = new Date(e.date);
     const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
     const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     window.open(
       `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
-        ev.title
-      )}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(
-        stripHTML(ev.description)
-      )}&location=${encodeURIComponent(ev.location ?? '')}`,
+        e.title
+      )}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(stripHTML(e.description))}&location=${encodeURIComponent(
+        e.location ?? ''
+      )}`,
       '_blank'
     );
   };
@@ -290,7 +295,7 @@ export function FeedTab() {
 
             {events.length > perPage && (
               <div className="flex items-center justify-center gap-3 pt-4 pb-2">
-                <p className="text-gray-400 text-sm">Page {page + 1} of {Math.ceil(events.length / perPage)}</p>
+                <p className="text-gray-400 text-sm">Page {page + 1} of {totalPages}</p>
                 {page > 0 && (
                   <button
                     onClick={() => setPage((p) => Math.max(0, p - 1))}
@@ -299,9 +304,9 @@ export function FeedTab() {
                     Previous
                   </button>
                 )}
-                {page + 1 < Math.ceil(events.length / perPage) && (
+                {page + 1 < totalPages && (
                   <button
-                    onClick={() => setPage((p) => Math.min(p + 1, Math.ceil(events.length / perPage) - 1))}
+                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                     className="bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white px-8 py-3 rounded-xl hover:opacity-90"
                   >
                     Next
