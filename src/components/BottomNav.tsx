@@ -1,14 +1,15 @@
-import { Home, FileText, User } from 'lucide-react';
+import { Home, FileText, User, Bookmark } from 'lucide-react';
 
 interface BottomNavProps {
-  activeTab: 'feed' | 'applications' | 'profile';
-  onTabChange: (tab: 'feed' | 'applications' | 'profile') => void;
+  activeTab: 'feed' | 'applications' | 'saved' | 'profile';
+  onTabChange: (tab: 'feed' | 'applications' | 'saved' | 'profile') => void;
 }
 
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-[#1a1d29] border-t border-gray-800 safe-area-inset-bottom">
       <div className="flex items-center justify-around h-20 px-6">
+        {/* Feed */}
         <button
           onClick={() => onTabChange('feed')}
           className={`flex flex-col items-center gap-1 transition-colors ${
@@ -19,6 +20,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
           <span className="text-xs font-medium">Feed</span>
         </button>
 
+        {/* Applications */}
         <button
           onClick={() => onTabChange('applications')}
           className={`flex flex-col items-center gap-1 transition-colors ${
@@ -29,6 +31,18 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
           <span className="text-xs font-medium">Applications</span>
         </button>
 
+        {/* Saved */}
+        <button
+          onClick={() => onTabChange('saved')}
+          className={`flex flex-col items-center gap-1 transition-colors ${
+            activeTab === 'saved' ? 'text-[#4C6EF5]' : 'text-gray-400'
+          }`}
+        >
+          <Bookmark className="w-6 h-6" />
+          <span className="text-xs font-medium">Saved</span>
+        </button>
+
+        {/* Profile */}
         <button
           onClick={() => onTabChange('profile')}
           className={`flex flex-col items-center gap-1 transition-colors ${
