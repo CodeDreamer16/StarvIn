@@ -32,7 +32,12 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'Career & Professional Development': [
     'career', 'internship', 'job', 'resume', 'cv', 'networking', 'linkedin',
     'career planning service', 'career advising', 'career fair', 'employability',
-    'industry', 'professional development', 'interview skills', 'graduate opportunities'
+    'industry', 'professional development', 'interview skills', 'graduate opportunities',
+    'skillsets', 'graduate workshops', 'apa citation', 'apa', 'productivity',
+    'time management', 'academic writing', 'study skills', 'communication skills',
+    'negotiation', 'graduate life', 'professional skills', 'writing workshop',
+    'career services', 'career prep', 'career readiness', 'graduate student',
+    'success strategies'
   ],
   'Workshops & Skill Building': [
     'workshop', 'training', 'skill building', 'tutorial', 'learning', 'skillsets',
