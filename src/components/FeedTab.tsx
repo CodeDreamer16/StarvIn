@@ -277,9 +277,17 @@ export function FeedTab() {
                   </div>
                   <button
                     onClick={() => handleSave(ev.id)}
-                    className="absolute top-3 right-3 z-10 bg-black/40 backdrop-blur-sm p-2 rounded-full hover:bg-black/70 transition"
+                    className={`absolute top-3 right-3 z-10 p-2 rounded-full transition-all duration-300 
+                      ${savedEvents.has(ev.id)
+                        ? 'bg-[#7C3AED]/20 hover:bg-[#7C3AED]/30'
+                        : 'bg-black/40 hover:bg-black/70 backdrop-blur-sm'}`}
                   >
-                    <Bookmark className={`w-5 h-5 ${isSaved ? 'fill-[#A78BFA] text-[#A78BFA]' : 'text-white'}`} />
+                    <Bookmark
+                      className={`w-5 h-5 transition-transform duration-300 
+                        ${savedEvents.has(ev.id)
+                          ? 'fill-[#A78BFA] text-[#A78BFA] scale-110'
+                          : 'text-white scale-100'}`}
+                    />
                   </button>
                 </div>
               );
