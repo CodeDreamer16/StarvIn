@@ -196,15 +196,29 @@ export function FeedTab() {
     });
   }, [events, currentPage]);
 
-  /** Smooth scroll to top when paging */
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const el = containerRef.current;
+  const scrollToTop = () => {
+    if (containerRef.current) {
+      containerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
-    requestAnimationFrame(() => {
-      el.scrollTo({ top: 0, behavior: 'smooth' });
+  const handleNextPage = () => {
+    setCurrentPage((p) => {
+      const next = Math.min(totalPages - 1, p + 1);
+      return next;
     });
+    scrollToTop();
+  };
 
+  const handlePreviousPage = () => {
+    setCurrentPage((p) => {
+      const prev = Math.max(0, p - 1);
+      return prev;
+    });
+    scrollToTop();
+  };
+
+  useEffect(() => {
     setVisibleCards(new Set());
   }, [currentPage]);
 
@@ -459,7 +473,7 @@ export function FeedTab() {
                 <p className="text-gray-400 text-sm">Page {currentPage + 1} of {totalPages}</p>
                 {currentPage > 0 && (
                   <button
-                    onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                    onClick={handlePreviousPage}
                     className="bg-[#1a1d29] text-white font-semibold px-6 py-3 rounded-xl hover:bg-[#252837] transition-colors border border-gray-700"
                   >
                     Previous
@@ -467,7 +481,7 @@ export function FeedTab() {
                 )}
                 {currentPage + 1 < totalPages && (
                   <button
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                    onClick={handleNextPage}
                     className="bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white font-semibold px-8 py-3 rounded-xl hover:opacity-90 transition-opacity"
                   >
                     Next Page
