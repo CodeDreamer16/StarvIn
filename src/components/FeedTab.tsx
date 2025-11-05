@@ -25,28 +25,38 @@ interface Application { event_id: string }
 /** 🔎 Interest → keyword map (expandable) */
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'Wellness & Mental Health': [
-    'wellness','mental','therapy','yoga','stress','anxiety','support group','mindfulness','meditation','health','well-being','wellbeing','care'
+    'wellness', 'mental health', 'therapy', 'yoga', 'stress', 'anxiety', 'mindfulness',
+    'student wellness hub', 'health support', 'meditation', 'relaxation', 'self-care',
+    'counseling', 'mental', 'support group', 'mental wellbeing'
   ],
   'Career & Professional Development': [
-    'career','job','internship','resume','cv','linkedin','recruit','network','networking','employer','interview','negotiation','workshop career'
+    'career', 'internship', 'job', 'resume', 'cv', 'networking', 'linkedin',
+    'career planning service', 'career advising', 'career fair', 'employability',
+    'industry', 'professional development', 'interview skills', 'graduate opportunities'
   ],
   'Workshops & Skill Building': [
-    'workshop','skill','training','tutorial','learn','skillsets','certificate','session','hands-on','how to','seminar'
+    'workshop', 'training', 'skill building', 'tutorial', 'learning', 'skillsets',
+    'graduate workshops', 'academic skills', 'study skills', 'seminar', 'hands-on'
   ],
   'Social & Community Events': [
-    'social','community','mixer','meetup','gathering','party','network','connect','hangout','celebration','circle'
+    'social', 'community', 'meetup', 'event', 'gathering', 'party', 'connect',
+    'student life', 'campus life', 'community event', 'peer network', 'hangout', 'mix and mingle'
   ],
   'Arts & Creative Activities': [
-    'art','creative','hive','studio','crochet','craft','drawing','painting','music','film','theatre','photography'
+    'art', 'creative', 'craft', 'drawing', 'painting', 'film', 'music', 'photography',
+    'studio', 'gallery', 'design', 'writing', 'artistic', 'performance'
   ],
   'Academic Support & Research': [
-    'academic','research','library','thesis','phd','masters','dissertation','citation','apa','study tips','writing','grad'
+    'academic', 'research', 'study', 'writing', 'library', 'thesis', 'citation', 'apa',
+    'study group', 'learning services', 'grad research', 'study tips', 'exam prep'
   ],
   'International Student Services': [
-    'international','immigration','iss','visa','study permit','caq','global','newcomer','intercultural'
+    'international', 'study permit', 'visa', 'iss', 'immigration', 'caq',
+    'global learning', 'international students', 'study abroad', 'intercultural', 'travel', 'exchange'
   ],
   'Leadership & Personal Growth': [
-    'leadership','leader','personal growth','mindset','emerging leaders','development','imposter syndrome','coach'
+    'leadership', 'leader', 'development', 'growth', 'mindset', 'emerging leaders',
+    'motivation', 'confidence', 'public speaking', 'personal growth', 'imposter syndrome', 'self improvement'
   ],
 };
 
