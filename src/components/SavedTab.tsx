@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { EventModal } from './EventModal';
-import { Calendar, MapPin, Send, Eye, Trash2 } from 'lucide-react';
+import { Calendar, Eye, Trash2 } from 'lucide-react';
 
 interface Event {
   id: string;
@@ -19,30 +19,67 @@ export function SavedTab() {
   const [events, setEvents] = useState<Event[]>([]);
   const [selected, setSelected] = useState<Event | null>(null);
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
-    (async () => {
-      const { data: saved } = await supabase
+    loadSavedEvents();
+  }, [user]);
+
+  const loadSavedEvents = async () => {
+    setLoading(true);
+    try {
+      // Get saved event IDs for this user
+      const { data: saved, error: savedErr } = await supabase
         .from('saved_events')
         .select('event_id')
         .eq('user_id', user.id);
 
+      if (savedErr) throw savedErr;
       const ids = (saved ?? []).map((s) => s.event_id);
-      if (!ids.length) return setEvents([]);
 
-      const { data } = await supabase.from('events').select('*').in('id', ids);
-      setEvents(data ?? []);
-    })();
-  }, [user]);
+      if (ids.length === 0) {
+        setEvents([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch matching events
+      const { data: eventsData, error: eventsErr } = await supabase
+        .from('events')
+        .select('*')
+        .in('id', ids);
+
+      if (eventsErr) throw eventsErr;
+
+      setEvents(eventsData ?? []);
+    } catch (err) {
+      console.error('Error loading saved events:', err);
+      setEvents([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const removeSaved = async (id: string) => {
-    await supabase.from('saved_events').delete().eq('user_id', user.id).eq('event_id', id);
-    setEvents((prev) => prev.filter((e) => e.id !== id));
+    try {
+      await supabase
+        .from('saved_events')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('event_id', id);
+      setEvents((prev) => prev.filter((e) => e.id !== id));
+    } catch (err) {
+      console.error('Error removing saved event:', err);
+    }
   };
 
   const formatDate = (d: string) =>
-    new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    new Date(d).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
 
   return (
     <>
@@ -52,11 +89,21 @@ export function SavedTab() {
           <p className="text-gray-400">Your bookmarked events</p>
         </div>
 
-        {events.length === 0 ? (
-          <div className="flex items-center justify-center h-64 text-gray-500">
-            You haven’t saved any events yet.
+        {/* Loading state */}
+        {loading ? (
+          <div className="flex items-center justify-center h-64 text-gray-400">
+            Loading your saved events...
+          </div>
+        ) : events.length === 0 ? (
+          // Empty state
+          <div className="flex flex-col items-center justify-center h-64 text-gray-500 px-6 text-center">
+            <p className="text-lg font-semibold text-gray-300 mb-2">No saved events yet</p>
+            <p className="text-sm text-gray-500">
+              Tap the 🔖 icon on any event to save it for later.
+            </p>
           </div>
         ) : (
+          // Event grid
           <div className="px-6 py-8 grid grid-cols-1 sm:grid-cols-2 gap-6">
             {events.map((ev) => (
               <div
@@ -73,7 +120,10 @@ export function SavedTab() {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => { setSelected(ev); setOpen(true); }}
+                    onClick={() => {
+                      setSelected(ev);
+                      setOpen(true);
+                    }}
                     className="flex-1 bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white py-2 rounded-xl font-semibold hover:opacity-90 transition"
                   >
                     <Eye className="inline w-4 h-4 mr-1" /> View
