@@ -25,43 +25,38 @@ interface Application { event_id: string }
 /** 🔎 Interest → keyword map (expandable) */
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'Wellness & Mental Health': [
-    'wellness', 'mental health', 'therapy', 'yoga', 'stress', 'anxiety', 'mindfulness',
-    'student wellness hub', 'health support', 'meditation', 'relaxation', 'self-care',
-    'counseling', 'mental', 'support group', 'mental wellbeing'
+    'student wellness hub', 'wellness', 'mental health', 'therapy', 'stress', 'mindfulness',
+    'yoga', 'self-care', 'resilience', 'mental wellbeing', 'support group', 'eating disorder',
+    'anxiety', 'counselling', 'well-being'
   ],
   'Career & Professional Development': [
-    'career', 'internship', 'job', 'resume', 'cv', 'networking', 'linkedin',
-    'career planning service', 'career advising', 'career fair', 'employability',
-    'industry', 'professional development', 'interview skills', 'graduate opportunities',
-    'skillsets', 'graduate workshops', 'apa citation', 'apa', 'productivity',
-    'time management', 'academic writing', 'study skills', 'communication skills',
-    'negotiation', 'graduate life', 'professional skills', 'writing workshop',
-    'career services', 'career prep', 'career readiness', 'graduate student',
-    'success strategies'
+    'career planning service', 'career', 'job', 'internship', 'linkedin', 'resume', 'cv',
+    'networking', 'professional development', 'skillsets graduate workshops', 'skillsets',
+    'apa citation', 'academic writing', 'communication skills', 'employability',
+    'field study', 'career fair', 'success strategies'
   ],
   'Workshops & Skill Building': [
-    'workshop', 'training', 'skill building', 'tutorial', 'learning', 'skillsets',
-    'graduate workshops', 'academic skills', 'study skills', 'seminar', 'hands-on'
+    'workshop', 'training', 'seminar', 'graduate workshop', 'skill building',
+    'tutorial', 'learning', 'certificate', 'skillsets'
   ],
   'Social & Community Events': [
-    'social', 'community', 'meetup', 'event', 'gathering', 'party', 'connect',
-    'student life', 'campus life', 'community event', 'peer network', 'hangout', 'mix and mingle'
+    'campus life & engagement', 'orientation', 'social', 'mixer', 'community', 'first-up mixer',
+    'engagement', 'meetup', 'student life', 'peer network'
   ],
   'Arts & Creative Activities': [
-    'art', 'creative', 'craft', 'drawing', 'painting', 'film', 'music', 'photography',
-    'studio', 'gallery', 'design', 'writing', 'artistic', 'performance'
+    'art', 'creative', 'design', 'music', 'film', 'photography', 'performance', 'gallery'
   ],
   'Academic Support & Research': [
-    'academic', 'research', 'study', 'writing', 'library', 'thesis', 'citation', 'apa',
-    'study group', 'learning services', 'grad research', 'study tips', 'exam prep'
+    'mcgill library', 'library', 'academic', 'research', 'study', 'citation', 'writing',
+    'learning', 'thesis', 'exam', 'grad research', 'matlab', 'quantitative life sciences'
   ],
   'International Student Services': [
-    'international', 'study permit', 'visa', 'iss', 'immigration', 'caq',
-    'global learning', 'international students', 'study abroad', 'intercultural', 'travel', 'exchange'
+    'international student services', 'iss', 'visa', 'study permit', 'caq', 'immigration',
+    'orientation', 'global', 'intercultural'
   ],
   'Leadership & Personal Growth': [
-    'leadership', 'leader', 'development', 'growth', 'mindset', 'emerging leaders',
-    'motivation', 'confidence', 'public speaking', 'personal growth', 'imposter syndrome', 'self improvement'
+    'leadership', 'personal growth', 'religious', 'spiritual', 'reflection', 'motivation',
+    'emerging leaders', 'mindset', 'faith', 'morals', 'values'
   ],
 };
 
