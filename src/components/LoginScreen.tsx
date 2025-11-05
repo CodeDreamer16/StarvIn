@@ -113,9 +113,8 @@ export function LoginScreen() {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <div className="text-5xl font-bold mb-3">
-            <span className="text-white">vyb</span>
-            <span className="text-[#4C6EF5]">i</span>
-            <span className="text-white">n</span>
+            <span className="text-white">VyB</span>
+            <span className="text-[#00BFFF]">in</span>
           </div>
           <p className="text-gray-400 text-lg">Stay Connected. Stay Inspired.</p>
         </div>
