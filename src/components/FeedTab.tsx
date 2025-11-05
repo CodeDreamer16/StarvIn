@@ -121,6 +121,35 @@ const matchesByInterests = (ev: Event, interests: string[]) => {
   return !!matchedInterest;
 };
 
+/** Rank events by how strongly they match selected interests */
+const rankEventsByRelevance = (events: Event[], interests: string[]) => {
+  const scored = events.map(ev => {
+    const text = normalize(
+      `${ev.title} ${stripHTML(ev.description)} ${ev.event_type ?? ''} ${ev.organization ?? ''}`
+    );
+    let score = 0;
+
+    for (const interest of interests) {
+      const keywords = CATEGORY_KEYWORDS[interest] ?? [];
+      for (const word of keywords) {
+        if (text.includes(normalize(word))) score += 5; // strong match
+      }
+      if (normalize(ev.organization)?.includes(normalize(interest))) score += 10;
+      if (normalize(ev.event_type)?.includes(normalize(interest))) score += 3;
+    }
+
+    // slight boost for upcoming events sooner than later
+    const daysAway = (new Date(ev.date).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+    if (!isNaN(daysAway)) score += Math.max(0, 20 - daysAway); // closer = higher
+
+    return { ...ev, _score: score };
+  });
+
+  // sort descending by score
+  return scored.sort((a, b) => b._score - a._score);
+};
+
+
 
 export function FeedTab() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -260,7 +289,7 @@ export function FeedTab() {
       // 4) Keyword-based filtering
       const filtered = upcoming.filter((ev) => matchesByInterests(ev, interests));
 
-      setEvents(filtered);
+      setEvents(rankEventsByRelevance(filtered, interests));
     } catch (err) {
       console.error('Error loading events:', err);
       setEvents([]);
