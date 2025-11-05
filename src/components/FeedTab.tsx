@@ -200,8 +200,11 @@ export function FeedTab() {
   useEffect(() => {
     if (!containerRef.current) return;
     const el = containerRef.current;
-    el.scrollTo({ top: 0, behavior: 'smooth' });
-    // reset animation flags for fresh fade-in on each page
+
+    requestAnimationFrame(() => {
+      el.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
     setVisibleCards(new Set());
   }, [currentPage]);
 
