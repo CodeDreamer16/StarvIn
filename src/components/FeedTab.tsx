@@ -70,27 +70,47 @@ const matchesByInterests = (ev: Event, interests: string[]) => {
   const text = normalize(
     `${ev.title} ${stripHTML(ev.description)} ${ev.event_type ?? ''} ${ev.organization ?? ''}`
   );
+  const typeNorm = normalize(ev.event_type);
+  let matchedInterest: string | null = null;
 
-  // Try keyword matching first
   for (const interest of interests) {
-    const kw = CATEGORY_KEYWORDS[interest] ?? [];
-    if (kw.length) {
-      for (const word of kw) {
-        if (text.includes(normalize(word))) return true;
+    const kwList = CATEGORY_KEYWORDS[interest] ?? [];
+
+    // 1️⃣ Strong match if event_type directly matches interest
+    if (typeNorm && typeNorm.includes(normalize(interest))) {
+      matchedInterest = interest;
+      break;
+    }
+
+    // 2️⃣ Otherwise, try word-level matching (requires exact keyword presence)
+    for (const kw of kwList) {
+      const kwNorm = normalize(kw);
+      const regex = new RegExp(`\\b${kwNorm}\\b`, 'i'); // whole-word match
+      if (regex.test(text)) {
+        matchedInterest = interest;
+        break;
       }
     }
+
+    if (matchedInterest) break;
   }
 
-  // Fallback: compare normalized interest name with event_type
-  const typeNorm = normalize(ev.event_type);
-  if (typeNorm) {
-    for (const interest of interests) {
-      if (typeNorm.includes(normalize(interest))) return true;
-    }
+  // 🧩 Logging for debugging:
+  if (!matchedInterest && interests.length > 0) {
+    console.warn('⚠️ No interest match for:', {
+      event: {
+        title: ev.title,
+        event_type: ev.event_type,
+        organization: ev.organization,
+      },
+      checkedInterests: interests,
+      previewText: text.slice(0, 200) + '...',
+    });
   }
 
-  return false;
+  return !!matchedInterest;
 };
+
 
 export function FeedTab() {
   const [events, setEvents] = useState<Event[]>([]);
