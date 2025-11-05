@@ -46,7 +46,7 @@ export function SplashScreen({ onComplete, checkingAuth = false }: SplashScreenP
           <span className="text-white">vyb</span>
           <span className="text-[#00BFFF]">in</span>
         </div>
-        <p className="text-gray-400 text-lg">Keep vybin & Stay Inspired.</p>
+        <p className="text-gray-400 text-lg">Keep vybin & Stay Informed.</p>
       </div>
     </div>
   );
