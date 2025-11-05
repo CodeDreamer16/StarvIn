@@ -1,66 +1,60 @@
+// src/components/FeedTab.tsx
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Calendar, MapPin, Award, Bookmark, Send, Eye } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { EventModal } from './EventModal';
 
+/** ---------- Types ---------- */
 interface Event {
   id: string;
   title: string;
-  description: string;
+  description: string | null;
   event_type: string | null;
   organization: string | null;
   location: string | null;
-  date: string;                 // ISO string in DB
+  date: string;                  // ISO string in DB
   deadline: string | null;
   image_url: string | null;
   prize: string | null;
   tags: string[] | null;
   link?: string | null;
 }
-
 interface SavedEvent { event_id: string }
 interface Application { event_id: string }
 
-/** 🔎 Interest → keyword map (expandable) */
+/** ---------- Interest → keywords (expandable) ---------- */
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'Wellness & Mental Health': [
-    'student wellness hub', 'wellness', 'mental health', 'therapy', 'stress', 'mindfulness',
-    'yoga', 'self-care', 'resilience', 'mental wellbeing', 'support group', 'eating disorder',
-    'anxiety', 'counselling', 'well-being'
+    'wellness','mental','therapy','yoga','stress','anxiety','support group','mindfulness',
+    'meditation','health','well-being','wellbeing','care','wellness hub'
   ],
   'Career & Professional Development': [
-    'career planning service', 'career', 'job', 'internship', 'linkedin', 'resume', 'cv',
-    'networking', 'professional development', 'skillsets graduate workshops', 'skillsets',
-    'apa citation', 'academic writing', 'communication skills', 'employability',
-    'field study', 'career fair', 'success strategies'
+    'career','job','internship','resume','cv','linkedin','recruit','network','networking',
+    'employer','interview','negotiation','career planning','work search','career advising'
   ],
   'Workshops & Skill Building': [
-    'workshop', 'training', 'seminar', 'graduate workshop', 'skill building',
-    'tutorial', 'learning', 'certificate', 'skillsets'
+    'workshop','skill','training','tutorial','learn','skillsets','certificate','session',
+    'hands-on','how to','seminar','clinic'
   ],
   'Social & Community Events': [
-    'campus life & engagement', 'orientation', 'social', 'mixer', 'community', 'first-up mixer',
-    'engagement', 'meetup', 'student life', 'peer network'
+    'social','community','mixer','meetup','gathering','party','connect','hangout','celebration','circle'
   ],
   'Arts & Creative Activities': [
-    'art', 'creative', 'design', 'music', 'film', 'photography', 'performance', 'gallery'
+    'art','creative','hive','studio','crochet','craft','drawing','painting','music','film','theatre','photography'
   ],
   'Academic Support & Research': [
-    'mcgill library', 'library', 'academic', 'research', 'study', 'citation', 'writing',
-    'learning', 'thesis', 'exam', 'grad research', 'matlab', 'quantitative life sciences'
+    'academic','research','library','thesis','phd','masters','dissertation','citation','apa','study tips','writing','grad'
   ],
   'International Student Services': [
-    'international student services', 'iss', 'visa', 'study permit', 'caq', 'immigration',
-    'orientation', 'global', 'intercultural'
+    'international','immigration','iss','visa','study permit','caq','global','newcomer','intercultural','orientation'
   ],
   'Leadership & Personal Growth': [
-    'leadership', 'personal growth', 'religious', 'spiritual', 'reflection', 'motivation',
-    'emerging leaders', 'mindset', 'faith', 'morals', 'values'
+    'leadership','leader','personal growth','mindset','emerging leaders','development','imposter syndrome','coach'
   ],
 };
 
-/** Helpers */
+/** ---------- Helpers ---------- */
 const stripHTML = (html?: string | null) =>
   (html ?? '')
     .replace(/<[^>]*>/g, ' ')
@@ -75,82 +69,32 @@ const normalize = (s?: string | null) =>
     .replace(/\s+/g, ' ')
     .trim();
 
-/** Match event to any of the selected interests using keywords and event_type fallback */
-const matchesByInterests = (ev: Event, interests: string[]) => {
+/** Compute a relevance score: more keyword hits = higher; exact event_type matches boosted */
+function relevanceScore(ev: Event, interests: string[]) {
   const text = normalize(
     `${ev.title} ${stripHTML(ev.description)} ${ev.event_type ?? ''} ${ev.organization ?? ''}`
   );
-  const typeNorm = normalize(ev.event_type);
-  let matchedInterest: string | null = null;
+  let score = 0;
 
   for (const interest of interests) {
-    const kwList = CATEGORY_KEYWORDS[interest] ?? [];
-
-    // 1️⃣ Strong match if event_type directly matches interest
-    if (typeNorm && typeNorm.includes(normalize(interest))) {
-      matchedInterest = interest;
-      break;
+    const kws = CATEGORY_KEYWORDS[interest] ?? [];
+    for (const kw of kws) {
+      const k = normalize(kw);
+      if (k && text.includes(k)) score += 3; // keyword match
     }
-
-    // 2️⃣ Otherwise, try word-level matching (requires exact keyword presence)
-    for (const kw of kwList) {
-      const kwNorm = normalize(kw);
-      const regex = new RegExp(`\\b${kwNorm}\\b`, 'i'); // whole-word match
-      if (regex.test(text)) {
-        matchedInterest = interest;
-        break;
-      }
-    }
-
-    if (matchedInterest) break;
+    // event_type partial match boost
+    const t = normalize(ev.event_type);
+    if (t && t.includes(normalize(interest))) score += 5;
   }
 
-  // 🧩 Logging for debugging:
-  if (!matchedInterest && interests.length > 0) {
-    console.warn('⚠️ No interest match for:', {
-      event: {
-        title: ev.title,
-        event_type: ev.event_type,
-        organization: ev.organization,
-      },
-      checkedInterests: interests,
-      previewText: text.slice(0, 200) + '...',
-    });
-  }
+  // newer events slightly favored
+  const d = new Date(ev.date).getTime();
+  if (!Number.isNaN(d)) score += Math.max(0, 1_000_000_000_000 - (Date.now() - d)) / 1e12;
 
-  return !!matchedInterest;
-};
+  return score;
+}
 
-/** Rank events by how strongly they match selected interests */
-const rankEventsByRelevance = (events: Event[], interests: string[]) => {
-  const scored = events.map(ev => {
-    const text = normalize(
-      `${ev.title} ${stripHTML(ev.description)} ${ev.event_type ?? ''} ${ev.organization ?? ''}`
-    );
-    let score = 0;
-
-    for (const interest of interests) {
-      const keywords = CATEGORY_KEYWORDS[interest] ?? [];
-      for (const word of keywords) {
-        if (text.includes(normalize(word))) score += 5; // strong match
-      }
-      if (normalize(ev.organization)?.includes(normalize(interest))) score += 10;
-      if (normalize(ev.event_type)?.includes(normalize(interest))) score += 3;
-    }
-
-    // slight boost for upcoming events sooner than later
-    const daysAway = (new Date(ev.date).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-    if (!isNaN(daysAway)) score += Math.max(0, 20 - daysAway); // closer = higher
-
-    return { ...ev, _score: score };
-  });
-
-  // sort descending by score
-  return scored.sort((a, b) => b._score - a._score);
-};
-
-
-
+/** ---------- Component ---------- */
 export function FeedTab() {
   const [events, setEvents] = useState<Event[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
@@ -159,12 +103,12 @@ export function FeedTab() {
   const [savedEvents, setSavedEvents] = useState<Set<string>>(new Set());
   const [appliedEvents, setAppliedEvents] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [visibleCards, setVisibleCards] = useState<Set<string>>(new Set());
 
+  const [visibleCards, setVisibleCards] = useState<Set<string>>(new Set());
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const { user } = useAuth();
 
@@ -172,12 +116,12 @@ export function FeedTab() {
   useEffect(() => {
     loadEventsWithPreferences();
     loadUserData();
-    // reset paging and animation state
+    // reset paging/animations
     setCurrentPage(0);
     setVisibleCards(new Set());
   }, [user]);
 
-  /** Set up fade/slide observer */
+  /** Intersection observer for per-card fade/slide */
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
       (entries) => {
@@ -192,12 +136,12 @@ export function FeedTab() {
           }
         });
       },
-      { threshold: 0.12, rootMargin: '60px' }
+      { threshold: 0.12, rootMargin: '80px' }
     );
     return () => observerRef.current?.disconnect();
   }, []);
 
-  /** Re-observe cards when page/events change (to re-trigger animation each page) */
+  /** Re-observe on page/events change so pages always animate */
   useEffect(() => {
     observerRef.current?.disconnect();
     observerRef.current = new IntersectionObserver(
@@ -213,39 +157,20 @@ export function FeedTab() {
           }
         });
       },
-      { threshold: 0.12, rootMargin: '60px' }
+      { threshold: 0.12, rootMargin: '80px' }
     );
     document.querySelectorAll('[data-event-card]').forEach((el) => {
       observerRef.current?.observe(el);
     });
   }, [events, currentPage]);
 
-  const scrollToTop = () => {
-    if (containerRef.current) {
-      containerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-
-  const handleNextPage = () => {
-    setCurrentPage((p) => {
-      const next = Math.min(totalPages - 1, p + 1);
-      return next;
-    });
-    scrollToTop();
-  };
-
-  const handlePreviousPage = () => {
-    setCurrentPage((p) => {
-      const prev = Math.max(0, p - 1);
-      return prev;
-    });
-    scrollToTop();
-  };
-
+  /** Smooth scroll to top on page change + reset animation flags */
   useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     setVisibleCards(new Set());
   }, [currentPage]);
 
+  /** ----- Data loaders ----- */
   const loadEventsWithPreferences = async () => {
     setLoading(true);
     try {
@@ -255,22 +180,19 @@ export function FeedTab() {
         return;
       }
 
-      // 1) Get user interests
+      // 1) Get interests
       const { data: prefs, error: prefError } = await supabase
         .from('user_preferences')
         .select('interest_name')
         .eq('user_id', user.id);
-
       if (prefError) throw prefError;
-
       const interests = (prefs ?? []).map((p) => p.interest_name).filter(Boolean) as string[];
 
-      // 2) Load events (order ascending by date) & keep only upcoming
+      // 2) Pull upcoming events
       const { data: allEvents, error: eventsError } = await supabase
         .from('events')
         .select('*')
         .order('date', { ascending: true });
-
       if (eventsError) throw eventsError;
 
       const now = new Date();
@@ -279,17 +201,33 @@ export function FeedTab() {
         return !isNaN(d.getTime()) && d >= now;
       });
 
-      // 3) If user has no interests, show nothing (or show all—your call). We’ll show nothing for now.
       if (!interests.length) {
+        // If no interests: show everything upcoming (you can switch to empty state if you prefer)
         setEvents(upcoming);
-        setLoading(false);
         return;
       }
 
-      // 4) Keyword-based filtering
-      const filtered = upcoming.filter((ev) => matchesByInterests(ev, interests));
+      // 3) Filter + rank by relevance
+      const filtered = upcoming.filter((ev) => {
+        const text = normalize(
+          `${ev.title} ${stripHTML(ev.description)} ${ev.event_type ?? ''} ${ev.organization ?? ''}`
+        );
+        // at least one keyword or type match
+        for (const interest of interests) {
+          const kws = CATEGORY_KEYWORDS[interest] ?? [];
+          if (kws.some((kw) => text.includes(normalize(kw)))) return true;
+          const t = normalize(ev.event_type);
+          if (t && t.includes(normalize(interest))) return true;
+        }
+        return false;
+      });
 
-      setEvents(rankEventsByRelevance(filtered, interests));
+      const ranked = filtered
+        .map((ev) => ({ ev, score: relevanceScore(ev, interests) }))
+        .sort((a, b) => b.score - a.score)
+        .map(({ ev }) => ev);
+
+      setEvents(ranked);
     } catch (err) {
       console.error('Error loading events:', err);
       setEvents([]);
@@ -316,11 +254,15 @@ export function FeedTab() {
     }
   };
 
+  /** ----- Actions ----- */
   const handleSave = async (eventId: string) => {
     if (!user) return;
     try {
       if (savedEvents.has(eventId)) {
-        await supabase.from('saved_events').delete().eq('user_id', user.id).eq('event_id', eventId);
+        await supabase.from('saved_events')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('event_id', eventId);
         setSavedEvents((prev) => {
           const next = new Set(prev);
           next.delete(eventId);
@@ -358,12 +300,10 @@ export function FeedTab() {
     }
   };
 
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
   const openModal = (ev: Event) => { setSelectedEvent(ev); setIsModalOpen(true); };
-  const closeModal = () => { setIsModalOpen(false); setTimeout(() => setSelectedEvent(null), 250); };
+  const closeModal = () => { setIsModalOpen(false); setTimeout(() => setSelectedEvent(null), 220); };
 
+  /** ----- Paging ----- */
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(events.length / eventsPerPage)),
     [events.length]
@@ -374,23 +314,32 @@ export function FeedTab() {
     return events.slice(start, start + eventsPerPage);
   }, [events, currentPage]);
 
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  /** ---------- UI ---------- */
   return (
     <>
-      <div ref={containerRef} className="flex-1 overflow-y-auto pb-24">
-        <div className="px-4 pt-6 pb-4">
-          <h1 className="text-3xl font-bold text-white mb-1">Discover</h1>
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto pb-24 bg-[#0B0C10]"
+      >
+        {/* Header */}
+        <div className="px-4 pt-6 pb-4 sticky top-0 z-10 bg-[#0B0C10]/80 backdrop-blur border-b border-white/5">
+          <h1 className="text-3xl font-bold text-white tracking-tight">Discover</h1>
           <p className="text-gray-400">Find events that match your interests</p>
         </div>
 
+        {/* Body */}
         {loading ? (
           <div className="flex items-center justify-center h-48 text-white">Loading events...</div>
         ) : events.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 px-8">
-            <p className="text-gray-400 text-center mb-2">No upcoming events match your interests right now.</p>
+            <p className="text-gray-300 text-center mb-2">No upcoming events match your interests right now.</p>
             <p className="text-gray-500 text-sm text-center">Try updating your preferences to discover more events!</p>
           </div>
         ) : (
-          <div className="px-4 space-y-4 pb-4">
+          <div className="px-4 space-y-4 py-4">
             {pageSlice.map((event, idx) => {
               const isSaved = savedEvents.has(event.id);
               const isApplied = appliedEvents.has(event.id);
@@ -402,34 +351,46 @@ export function FeedTab() {
                   key={event.id}
                   id={cardId}
                   data-event-card
-                  className={`bg-[#1a1d29] rounded-3xl overflow-hidden border border-gray-800 hover:border-gray-700 transition-all duration-500
-                    ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+                  className={[
+                    // Glass card
+                    "relative rounded-3xl overflow-hidden border border-white/10",
+                    "bg-white/5 backdrop-blur-md",
+                    "shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)]",
+                    "hover:shadow-[0_20px_60px_-10px_rgba(0,0,0,0.55)]",
+                    "hover:border-white/15 transition-all duration-500",
+                    // Page/card animation
+                    visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+                  ].join(' ')}
                   style={{ transitionDelay: `${idx * 35}ms` }}
                 >
+                  {/* Banner */}
                   <div
                     className="h-48 bg-cover bg-center relative"
                     style={{
-                      backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.6)), url(${event.image_url ?? ''})`,
+                      backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.65)), url(${event.image_url ?? ''})`,
                     }}
                   >
                     {event.event_type && (
                       <div className="absolute top-4 left-4">
-                        <span className="bg-[#4C6EF5] text-white px-3 py-1 rounded-full text-xs font-semibold">
+                        <span className="bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white px-3 py-1 rounded-full text-xs font-semibold">
                           {event.event_type}
                         </span>
                       </div>
                     )}
                     <button
                       onClick={() => handleSave(event.id)}
-                      className="absolute top-4 right-4 bg-black/50 backdrop-blur-sm p-2 rounded-full hover:bg-black/70 transition-colors"
+                      className="absolute top-4 right-4 bg-black/40 backdrop-blur-sm p-2 rounded-full hover:bg-black/60 transition"
                     >
-                      <Bookmark className={`w-5 h-5 ${isSaved ? 'fill-[#4C6EF5] text-[#4C6EF5]' : 'text-white'}`} />
+                      <Bookmark
+                        className={`w-5 h-5 ${isSaved ? 'fill-[#A78BFA] text-[#A78BFA]' : 'text-white'}`}
+                      />
                     </button>
                   </div>
 
+                  {/* Content */}
                   <div className="p-5 space-y-3">
                     <div>
-                      <h3 className="text-xl font-bold text-white mb-1">{event.title}</h3>
+                      <h3 className="text-xl font-bold text-white mb-1 leading-snug">{event.title}</h3>
                       {event.organization && <p className="text-gray-400 text-sm">{event.organization}</p>}
                     </div>
 
@@ -445,7 +406,7 @@ export function FeedTab() {
                         <span>{event.location ?? 'McGill University'}</span>
                       </div>
                       {event.prize && (
-                        <div className="flex items-center gap-2 text-[#4C6EF5] text-sm font-medium">
+                        <div className="flex items-center gap-2 text-[#A78BFA] text-sm font-medium">
                           <Award className="w-4 h-4" />
                           <span>{event.prize}</span>
                         </div>
@@ -454,8 +415,8 @@ export function FeedTab() {
 
                     {event.tags?.length ? (
                       <div className="flex flex-wrap gap-2">
-                        {event.tags.slice(0, 3).map((tag, idx) => (
-                          <span key={idx} className="bg-gray-800 text-gray-300 px-3 py-1 rounded-full text-xs">
+                        {event.tags.slice(0, 3).map((tag, i) => (
+                          <span key={i} className="bg-white/10 text-gray-200 px-3 py-1 rounded-full text-xs">
                             {tag}
                           </span>
                         ))}
@@ -465,28 +426,32 @@ export function FeedTab() {
                     <div className="space-y-2">
                       <button
                         onClick={() => openModal(event)}
-                        className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white hover:opacity-90 transition-opacity"
+                        className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2
+                                   bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white hover:opacity-90 transition"
                       >
                         <Eye className="w-4 h-4" />
                         View Details
                       </button>
 
                       <div className="flex gap-2">
-                        {/* You said Add to Calendar is redundant; keep Apply only if you prefer */}
                         <button
                           onClick={() => handleApply(event.id, event)}
                           disabled={isApplied}
-                          className={`flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
+                          className={[
+                            "flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all",
                             isApplied
-                              ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                              : 'bg-[#0B0C10] text-white border border-gray-700 hover:border-gray-600'
-                          }`}
+                              ? "bg-white/10 text-gray-400 cursor-not-allowed"
+                              : "bg-black/40 text-white border border-white/15 hover:border-white/25 backdrop-blur"
+                          ].join(' ')}
                         >
                           {isApplied ? 'Applied' : (<><Send className="w-4 h-4" />Apply</>)}
                         </button>
                       </div>
                     </div>
                   </div>
+
+                  {/* Subtle glow */}
+                  <div className="pointer-events-none absolute -inset-px rounded-3xl bg-gradient-to-r from-[#4C6EF5]/10 to-[#7C3AED]/10 opacity-0 hover:opacity-100 transition" />
                 </div>
               );
             })}
@@ -497,16 +462,16 @@ export function FeedTab() {
                 <p className="text-gray-400 text-sm">Page {currentPage + 1} of {totalPages}</p>
                 {currentPage > 0 && (
                   <button
-                    onClick={handlePreviousPage}
-                    className="bg-[#1a1d29] text-white font-semibold px-6 py-3 rounded-xl hover:bg-[#252837] transition-colors border border-gray-700"
+                    onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                    className="bg-white/5 backdrop-blur text-white font-semibold px-6 py-3 rounded-xl hover:bg-white/10 transition border border-white/10"
                   >
                     Previous
                   </button>
                 )}
                 {currentPage + 1 < totalPages && (
                   <button
-                    onClick={handleNextPage}
-                    className="bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white font-semibold px-8 py-3 rounded-xl hover:opacity-90 transition-opacity"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                    className="bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white font-semibold px-8 py-3 rounded-xl hover:opacity-90 transition"
                   >
                     Next Page
                   </button>
