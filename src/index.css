@@ -176,3 +176,26 @@
   animation: pulseGradient 6s ease-in-out infinite;
 }
 
+/* -------------------------------------------------
+   🔹 Floating icons animation for banner
+------------------------------------------------- */
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(5deg); }
+}
+@keyframes float-slow2 {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(12px) rotate(-6deg); }
+}
+@keyframes float-slow3 {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(4deg); }
+}
+@keyframes float-slow4 {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(15px) rotate(-3deg); }
+}
+.animate-float-slow { animation: float-slow 6s ease-in-out infinite; }
+.animate-float-slow2 { animation: float-slow2 7s ease-in-out infinite; }
+.animate-float-slow3 { animation: float-slow3 8s ease-in-out infinite; }
+.animate-float-slow4 { animation: float-slow4 9s ease-in-out infinite; }
