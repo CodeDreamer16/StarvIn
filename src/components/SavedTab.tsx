@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { Calendar, MapPin, Eye, Bookmark, Trash2 } from "lucide-react";
 import { EventModal } from "./EventModal";
+import { SkeletonCard } from "./SkeletonCard"; // 👈 new import
 
 interface Event {
   id: string;
@@ -40,7 +41,6 @@ export function SavedTab() {
     if (!user) return;
     setLoading(true);
     try {
-      // Step 1: Get saved event IDs
       const { data: saved, error: savedErr } = await supabase
         .from("saved_events")
         .select("event_id")
@@ -54,7 +54,6 @@ export function SavedTab() {
         return;
       }
 
-      // Step 2: Get event details
       const { data: events, error: eventsErr } = await supabase
         .from("events")
         .select(
@@ -70,7 +69,7 @@ export function SavedTab() {
       setSavedEvents([]);
     } finally {
       setLoading(false);
-      setTimeout(() => setFadeIn(true), 100); // trigger animation
+      setTimeout(() => setFadeIn(true), 100);
     }
   };
 
@@ -102,10 +101,13 @@ export function SavedTab() {
     }
   };
 
+  // 💎 shimmer skeletons instead of “Loading…” text
   if (loading)
     return (
-      <div className="flex items-center justify-center h-64 text-white">
-        Loading saved events...
+      <div className="px-4 pt-6 pb-24 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <SkeletonCard key={i} />
+        ))}
       </div>
     );
 
