@@ -113,6 +113,7 @@ export function FeedTab() {
   const [visibleCards, setVisibleCards] = useState<Set<string>>(new Set());
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [fadeState, setFadeState] = useState<"fade-in" | "fade-out">("fade-in");
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -123,11 +124,16 @@ export function FeedTab() {
     loadUserData();
   }, [user]);
 
-  useEffect(() => {
-    if (scrollRef.current)
-      scrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
-    setVisibleCards(new Set());
-  }, [currentPage]);
+  // 🔹 Smooth fade when switching pages
+  const handlePageChange = (newPage: number) => {
+    setFadeState("fade-out");
+    setTimeout(() => {
+      setCurrentPage(newPage);
+      if (scrollRef.current) scrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+      setVisibleCards(new Set());
+      setFadeState("fade-in");
+    }, 250); // 250ms fade transition
+  };
 
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
@@ -283,7 +289,11 @@ export function FeedTab() {
             No matching events found.
           </div>
         ) : (
-          <div className="px-6 py-8 grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div
+            className={`px-6 py-8 grid grid-cols-1 sm:grid-cols-2 gap-6 transition-opacity duration-300 ${
+              fadeState === "fade-in" ? "opacity-100" : "opacity-0"
+            }`}
+          >
             {pageSlice.map((ev, idx) => {
               const isSaved = savedEvents.has(ev.id);
               const isApplied = appliedEvents.has(ev.id);
@@ -379,12 +389,12 @@ export function FeedTab() {
           </div>
         )}
 
-        {/* ✅ Fixed Pagination */}
+        {/* ✅ Pagination with smooth fade */}
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-3 pb-6">
             {currentPage > 0 && (
               <button
-                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                onClick={() => handlePageChange(Math.max(0, currentPage - 1))}
                 className="bg-white/5 text-white px-5 py-3 rounded-xl hover:bg-white/10 transition"
               >
                 Previous
@@ -395,7 +405,7 @@ export function FeedTab() {
             </p>
             {currentPage + 1 < totalPages && (
               <button
-                onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                onClick={() => handlePageChange(Math.min(totalPages - 1, currentPage + 1))}
                 className="bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] text-white px-6 py-3 rounded-xl hover:opacity-90 transition"
               >
                 Next
