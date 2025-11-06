@@ -130,7 +130,7 @@ function AppContent() {
           }`}
         >
           {/* Scrollable Content */}
-          <div className="overflow-y-auto h-full pb-24">
+          <div className="overflow-y-auto h-full pb-32">
             {activeTab === 'feed' && <FeedTab />}
             {activeTab === 'applications' && <ApplicationsTab />}
             {activeTab === 'saved' && <SavedTab />}
