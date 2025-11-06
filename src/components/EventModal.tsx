@@ -11,7 +11,7 @@ interface Event {
   location: string;
   date: string;
   deadline: string | null;
-  image_url: string;
+  image_url: string | null;
   prize: string;
   tags: string[];
   link?: string;
@@ -24,7 +24,7 @@ interface EventModalProps {
 }
 
 export function EventModal({ event, isOpen, onClose }: EventModalProps) {
-  // lock page scroll while modal is open
+  // 🔒 lock page scroll while modal is open
   useEffect(() => {
     if (isOpen) {
       const prev = document.body.style.overflow;
@@ -35,7 +35,7 @@ export function EventModal({ event, isOpen, onClose }: EventModalProps) {
     }
   }, [isOpen]);
 
-  // close on Escape
+  // ⎋ close on Escape
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
@@ -86,21 +86,32 @@ export function EventModal({ event, isOpen, onClose }: EventModalProps) {
           <X className="h-6 w-6 text-white" />
         </button>
 
-        {/* Header image */}
-        <div
-          className="relative h-56 w-full bg-cover bg-center md:h-64"
-          style={{
-            backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.6)), url(${event.image_url || ""})`,
-          }}
-        >
-          <div className="absolute bottom-4 left-6">
-            {event.event_type ? (
-              <span className="rounded-full bg-[#4C6EF5] px-4 py-1.5 text-sm font-semibold text-white">
+        {/* Header image (conditionally rendered) */}
+        {event.image_url ? (
+          <div
+            className="relative h-56 w-full bg-cover bg-center md:h-64"
+            style={{
+              backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.6)), url(${event.image_url})`,
+            }}
+          >
+            <div className="absolute bottom-4 left-6">
+              {event.event_type && (
+                <span className="rounded-full bg-[#4C6EF5] px-4 py-1.5 text-sm font-semibold text-white shadow-md">
+                  {event.event_type}
+                </span>
+              )}
+            </div>
+          </div>
+        ) : (
+          // Optional fallback if no image
+          <div className="h-20 w-full bg-gradient-to-r from-[#00BFFF]/30 to-[#4C6EF5]/20 flex items-center justify-start px-6">
+            {event.event_type && (
+              <span className="rounded-full bg-[#4C6EF5]/80 px-4 py-1.5 text-sm font-semibold text-white shadow-md">
                 {event.event_type}
               </span>
-            ) : null}
+            )}
           </div>
-        </div>
+        )}
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto p-6">
@@ -123,12 +134,12 @@ export function EventModal({ event, isOpen, onClose }: EventModalProps) {
                 <span>{event.location}</span>
               </div>
 
-              {event.prize ? (
+              {event.prize && (
                 <div className="flex items-start gap-3 font-medium text-[#4C6EF5]">
                   <Award className="mt-0.5 h-5 w-5 flex-shrink-0" />
                   <span>{event.prize}</span>
                 </div>
-              ) : null}
+              )}
             </div>
 
             <div className="border-t border-gray-800 pt-6">
@@ -138,7 +149,7 @@ export function EventModal({ event, isOpen, onClose }: EventModalProps) {
               </p>
             </div>
 
-            {event.tags?.length ? (
+            {event.tags?.length > 0 && (
               <div className="border-t border-gray-800 pt-6">
                 <h3 className="mb-3 text-lg font-semibold text-white">Tags</h3>
                 <div className="flex flex-wrap gap-2">
@@ -152,27 +163,26 @@ export function EventModal({ event, isOpen, onClose }: EventModalProps) {
                   ))}
                 </div>
               </div>
-            ) : null}
+            )}
 
-            {event.link ? (
+            {event.link && (
               <div className="border-t border-gray-800 pt-6">
                 <a
                   href={event.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] py-4 font-semibold text-white transition-opacity hover:opacity-90"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] py-4 font-semibold text-white transition-opacity hover:opacity-90"
                 >
                   <ExternalLink className="h-5 w-5" />
                   Open in Browser
                 </a>
               </div>
-            ) : null}
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 
-  // render outside any transformed/overflow-hidden parents
   return createPortal(modal, document.body);
 }
