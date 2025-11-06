@@ -173,14 +173,17 @@ export function LoginScreen() {
                 </div>
               </div>
 
-              {/* Google Button */}
+              {/* Google Button with Official Logo */}
               <button
                 onClick={handleGoogleSignIn}
                 disabled={loading}
                 className="w-full bg-white text-gray-900 font-semibold py-4 rounded-xl flex items-center justify-center gap-3 transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,191,255,0.5)] hover:-translate-y-[2px] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92..." />
+                <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+                  <path fill="#EA4335" d="M24 9.5c3.94 0 6.7 1.7 8.25 3.1l6.08-5.88C34.14 3.3 29.64 1 24 1 14.97 1 7.26 6.58 4.14 14.26l7.48 5.82C13.07 13.5 18.02 9.5 24 9.5z"/>
+                  <path fill="#34A853" d="M46.15 24.5c0-1.64-.14-3.18-.4-4.68H24v9.04h12.5c-.54 2.77-2.16 5.1-4.57 6.66l7.02 5.47C43.7 36.13 46.15 30.79 46.15 24.5z"/>
+                  <path fill="#4A90E2" d="M11.62 28.09a14.28 14.28 0 0 1-.76-4.59c0-1.6.28-3.14.76-4.59l-7.48-5.82A23.67 23.67 0 0 0 .5 23.5C.5 30.47 3.8 36.63 9 40.61l7.28-5.76c-2.32-1.47-4.05-3.84-4.66-6.76z"/>
+                  <path fill="#FBBC05" d="M24 46.5c6.08 0 11.18-2.02 14.9-5.52l-7.02-5.47c-1.96 1.31-4.47 2.07-7.88 2.07-5.98 0-10.93-4-12.37-9.62l-7.48 5.82C7.26 41.42 14.97 46.5 24 46.5z"/>
                 </svg>
                 Continue with Google
               </button>
