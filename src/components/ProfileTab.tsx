@@ -23,13 +23,13 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
   const fetchUserStats = async () => {
     try {
       setLoading(true);
-
+  
       const [apps, saved, prefs] = await Promise.all([
         supabase.from('applications').select('id', { count: 'exact' }).eq('user_id', user.id),
-        supabase.from('saved_events').select('id', { count: 'exact' }).eq('user_id', user.id),
+        supabase.from('saved_events').select('event_id', { count: 'exact' }).eq('user_id', user.id),
         supabase.from('user_preferences').select('interest_name', { count: 'exact' }).eq('user_id', user.id),
       ]);
-
+  
       setApplicationsCount(apps.count || 0);
       setSavedCount(saved.count || 0);
       setInterestsCount(prefs.count || 0);
