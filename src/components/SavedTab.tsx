@@ -39,37 +39,39 @@ export function SavedTab() {
     if (!user) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('saved_events')
-        .select(`
-          event_id,
-          events (
-            id,
-            title,
-            description,
-            event_type,
-            organization,
-            location,
-            date,
-            image_url,
-            prize,
-            tags,
-            link
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      const events = (data ?? []).map((row: any) => row.events).filter(Boolean);
-      setSavedEvents(events);
+      // Step 1: Get saved event IDs
+      const { data: saved, error: savedErr } = await supabase
+        .from("saved_events")
+        .select("event_id")
+        .eq("user_id", user.id);
+      if (savedErr) throw savedErr;
+  
+      const eventIds = saved?.map((s) => s.event_id) || [];
+      if (!eventIds.length) {
+        setSavedEvents([]);
+        setLoading(false);
+        return;
+      }
+  
+      // Step 2: Get actual event details
+      const { data: events, error: eventsErr } = await supabase
+        .from("events")
+        .select(
+          "id, title, description, event_type, organization, location, date, image_url, prize, tags, link"
+        )
+        .in("id", eventIds)
+        .order("date", { ascending: true });
+  
+      if (eventsErr) throw eventsErr;
+      setSavedEvents(events || []);
     } catch (err) {
-      console.error('Error fetching saved events:', err);
+      console.error("Error fetching saved events:", err);
       setSavedEvents([]);
     } finally {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     fetchSavedEvents();
