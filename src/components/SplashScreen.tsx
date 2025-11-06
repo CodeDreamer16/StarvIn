@@ -12,24 +12,26 @@ export function SplashScreen({ onComplete, checkingAuth = false }: SplashScreenP
   const glowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase("fadeIn"), 100);
-    const t2 = setTimeout(() => setPhase("visible"), 600);
+    const timers: NodeJS.Timeout[] = [];
 
-    // Word reveals: Discover → Connect → Vybe
-    const t3 = setTimeout(() => setWordVisibility([true, false, false]), 1000);
-    const t4 = setTimeout(() => setWordVisibility([true, true, false]), 2000);
-    const t5 = setTimeout(() => setWordVisibility([true, true, true]), 3000);
+    timers.push(setTimeout(() => setPhase("fadeIn"), 100));
+    timers.push(setTimeout(() => setPhase("visible"), 600));
 
-    // ⏱ extended stay so “Vybe.” has time to show
+    // Sequential tagline
+    timers.push(setTimeout(() => setWordVisibility([true, false, false]), 1000));
+    timers.push(setTimeout(() => setWordVisibility([true, true, false]), 2000));
+    timers.push(setTimeout(() => setWordVisibility([true, true, true]), 3000));
+
+    // Hold for a while so user sees Vybe clearly
     if (!checkingAuth) {
-      const t6 = setTimeout(() => setPhase("fadeOut"), 6500); // start fade at 6.5 s
-      const t7 = setTimeout(() => onComplete(), 7200);        // leave screen at 7.2 s
-      return () => [t1, t2, t3, t4, t5, t6, t7].forEach(clearTimeout);
+      timers.push(setTimeout(() => setPhase("fadeOut"), 7000));  // start fade out
+      timers.push(setTimeout(() => onComplete(), 8200));          // end fade
     }
 
-    return () => [t1, t2, t3, t4, t5].forEach(clearTimeout);
+    return () => timers.forEach(clearTimeout);
   }, [onComplete, checkingAuth]);
 
+  // Mouse-based glow
   useEffect(() => {
     const handleMove = (e: MouseEvent) => {
       const x = (e.clientX / window.innerWidth) * 100;
@@ -48,7 +50,7 @@ export function SplashScreen({ onComplete, checkingAuth = false }: SplashScreenP
 
   return (
     <div
-      className={`fixed inset-0 flex items-center justify-center z-50 transition-all duration-700 ease-[cubic-bezier(0.4,0,0.2,1)]
+      className={`fixed inset-0 flex items-center justify-center z-50 transition-all duration-[1200ms] ease-[cubic-bezier(0.4,0,0.2,1)]
         bg-gradient-to-br from-[#0B0C10] via-[#11131c] to-[#0B0C10]
         ${
           phase === "fadeIn"
@@ -61,7 +63,10 @@ export function SplashScreen({ onComplete, checkingAuth = false }: SplashScreenP
         }`}
     >
       {/* Reactive Glow */}
-      <div ref={glowRef} className="absolute inset-0 transition-all duration-700 pointer-events-none" />
+      <div
+        ref={glowRef}
+        className="absolute inset-0 transition-all duration-700 ease-in-out pointer-events-none"
+      />
 
       {/* Animated Blobs */}
       <div className="absolute inset-0 overflow-hidden">
@@ -84,7 +89,7 @@ export function SplashScreen({ onComplete, checkingAuth = false }: SplashScreenP
           </span>
         </h1>
 
-        {/* Inline tagline with delayed word-by-word reveal */}
+        {/* Inline tagline */}
         <p className="text-gray-400 text-lg font-medium">
           <span
             className={`transition-all duration-700 ${
