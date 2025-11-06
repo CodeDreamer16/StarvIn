@@ -3,6 +3,7 @@ import { Calendar, MapPin, Bookmark, Send, Eye } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { EventModal } from "./EventModal";
+import { SkeletonCard } from "./SkeletonCard";
 
 interface Event {
   id: string;
@@ -232,26 +233,28 @@ export function FeedTab() {
           </div>
 
           <div className="relative z-10 text-center">
-            <h1 className="text-5xl font-extrabold bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] bg-clip-text text-transparent animate-pulse-slow drop-shadow-[0_0_20px_rgba(0,191,255,0.4)] mb-3 hover:drop-shadow-[0_0_30px_rgba(0,191,255,0.8)] transition-all duration-500">
+            <h1 className="text-5xl font-extrabold bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] bg-clip-text text-transparent animate-pulse-slow mb-3">
               Discover
             </h1>
-            <p className="text-gray-400 text-lg animate-fadeIn delay-200">
-              Find events that match your interests
-            </p>
+            <p className="text-gray-400 text-lg">Find events that match your interests</p>
             <div className="mt-6 h-[1px] w-48 mx-auto bg-gradient-to-r from-[#00BFFF]/0 via-[#00BFFF]/60 to-[#00BFFF]/0 rounded-full" />
           </div>
         </div>
 
         {/* Events */}
         {loading ? (
-          <div className="flex items-center justify-center h-48 text-white">Loading...</div>
+          <div className="px-6 py-8 grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
         ) : events.length === 0 ? (
           <div className="flex items-center justify-center h-48 text-gray-400">
             No matching events found.
           </div>
         ) : (
           <div
-            className={`px-6 py-8 grid grid-cols-1 sm:grid-cols-2 gap-6 transition-opacity duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+            className={`px-6 py-8 grid grid-cols-1 sm:grid-cols-2 gap-6 transition-opacity duration-500 ${
               fadeState === "fade-in" ? "opacity-100" : "opacity-0"
             }`}
           >
@@ -271,7 +274,7 @@ export function FeedTab() {
                   data-event-card
                   className={`relative rounded-3xl overflow-hidden border border-white/10 backdrop-blur-md
                     bg-white/5 shadow-[0_4px_20px_rgba(0,0,0,0.3)]
-                    transform transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
+                    transform transition-all duration-500
                     hover:scale-[1.03] hover:shadow-[0_10px_35px_rgba(0,191,255,0.35)]
                     hover:border-[#00BFFF]/50
                     ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
@@ -296,19 +299,17 @@ export function FeedTab() {
 
                     <div className="mt-4 space-y-2">
                       <div className="flex items-center gap-2 text-gray-300 text-sm">
-                        <Calendar className="w-4 h-4" />{" "}
-                        <span>{formatDate(ev.date)}</span>
+                        <Calendar className="w-4 h-4" /> <span>{formatDate(ev.date)}</span>
                       </div>
                       <div className="flex items-center gap-2 text-gray-300 text-sm">
-                        <MapPin className="w-4 h-4" />{" "}
-                        <span>{ev.location ?? "McGill University"}</span>
+                        <MapPin className="w-4 h-4" /> <span>{ev.location ?? "McGill University"}</span>
                       </div>
                     </div>
 
                     <div className="mt-4 space-y-2">
                       <button
                         onClick={() => openModal(ev)}
-                        className="w-full bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] hover:from-[#1EC8FF] hover:to-[#5F8FFF] transition-all text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                        className="w-full bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] hover:opacity-90 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
                       >
                         <Eye className="w-4 h-4" /> View Details
                       </button>
@@ -350,7 +351,7 @@ export function FeedTab() {
           </div>
         )}
 
-        {/* ✅ Pagination */}
+        {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-3 pb-6">
             {currentPage > 0 && (
