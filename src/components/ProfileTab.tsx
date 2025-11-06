@@ -202,12 +202,12 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
             <Camera className="w-4 h-4 text-white" />
           </button>
 
-          {/* 🎛️ Refined Camera dropdown */}
+          {/* 🎛️ Wider Camera Dropdown */}
           {showCameraMenu && (
-            <div className="absolute bottom-12 right-0 w-34 bg-[#1a1d29]/90 backdrop-blur-md border border-white/10 rounded-xl shadow-lg overflow-hidden animate-fadeIn z-50 text-[13px]">
+            <div className="absolute bottom-12 right-0 w-48 bg-[#1a1d29]/90 backdrop-blur-md border border-white/10 rounded-xl shadow-lg overflow-hidden animate-fadeIn z-50 text-[13px]">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full text-left px-3 py-2 flex items-center gap-1.5 hover:bg-white/10 transition text-gray-200"
+                className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-white/10 transition text-gray-200"
               >
                 <Upload className="w-4 h-4 text-[#00BFFF]" />
                 Upload Photo
@@ -217,14 +217,14 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
                   setShowAvatarModal(true);
                   setShowCameraMenu(false);
                 }}
-                className="w-full text-left px-3 py-2 flex items-center gap-1.5 hover:bg-white/10 transition text-gray-200"
+                className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-white/10 transition text-gray-200"
               >
                 <Eye className="w-4 h-4 text-[#4C6EF5]" />
                 View Photo
               </button>
               <button
                 onClick={handleRemoveAvatar}
-                className="w-full text-left px-3 py-2 flex items-center gap-1.5 hover:bg-red-500/10 text-red-400 transition"
+                className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-red-500/10 text-red-400 transition"
               >
                 <Trash2 className="w-4 h-4" />
                 Remove Photo
@@ -279,14 +279,14 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         ))}
       </div>
 
-      {/* 🖼️ Avatar Modal */}
+      {/* 🖼️ Avatar Modal (scaled down slightly) */}
       {showAvatarModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
-          <div className="relative bg-[#11121A]/90 rounded-3xl shadow-[0_0_20px_rgba(0,191,255,0.25)] p-4 w-80 h-80 flex items-center justify-center border border-white/5">
+          <div className="relative bg-[#11121A]/90 rounded-3xl shadow-[0_0_20px_rgba(0,191,255,0.25)] p-4 w-72 h-72 flex items-center justify-center border border-white/5">
             <img
               src={profile?.avatar_url || DEFAULT_AVATAR}
               alt="Profile zoom"
-              className="w-64 h-64 object-cover rounded-2xl border border-white/5"
+              className="w-56 h-56 object-cover rounded-2xl border border-white/5"
             />
             <button
               onClick={() => setShowAvatarModal(false)}
