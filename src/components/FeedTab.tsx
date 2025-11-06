@@ -124,7 +124,7 @@ export function FeedTab() {
     loadUserData();
   }, [user]);
 
-  // 🔹 Smooth fade when switching pages
+  // 🔹 Smooth fade + slower transition when switching pages
   const handlePageChange = (newPage: number) => {
     setFadeState("fade-out");
     setTimeout(() => {
@@ -132,7 +132,7 @@ export function FeedTab() {
       if (scrollRef.current) scrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
       setVisibleCards(new Set());
       setFadeState("fade-in");
-    }, 250); // 250ms fade transition
+    }, 500); // slower fade transition (was 250)
   };
 
   useEffect(() => {
@@ -290,7 +290,7 @@ export function FeedTab() {
           </div>
         ) : (
           <div
-            className={`px-6 py-8 grid grid-cols-1 sm:grid-cols-2 gap-6 transition-opacity duration-300 ${
+            className={`px-6 py-8 grid grid-cols-1 sm:grid-cols-2 gap-6 transition-opacity duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${
               fadeState === "fade-in" ? "opacity-100" : "opacity-0"
             }`}
           >
@@ -310,12 +310,12 @@ export function FeedTab() {
                   data-event-card
                   className={`relative rounded-3xl overflow-hidden border border-white/10 backdrop-blur-md
                     bg-white/5 shadow-[0_4px_20px_rgba(0,0,0,0.3)]
-                    transform transition-transform duration-200 ease-out hover:scale-[1.03]
-                    hover:shadow-[0_10px_35px_rgba(0,191,255,0.35)] hover:border-[#00BFFF]/50
-                    will-change-transform will-change-[box-shadow]
-                    ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+                    transform transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
+                    hover:scale-[1.03] hover:shadow-[0_10px_35px_rgba(0,191,255,0.35)]
+                    hover:border-[#00BFFF]/50
+                    ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
                   style={{
-                    transitionDelay: `${idx * 40}ms`,
+                    transitionDelay: `${idx * 60}ms`, // slightly slower stagger
                     backgroundImage: bg,
                     backgroundSize: ev.image_url ? "cover" : "auto",
                     backgroundPosition: "center",
@@ -389,7 +389,7 @@ export function FeedTab() {
           </div>
         )}
 
-        {/* ✅ Pagination with smooth fade */}
+        {/* ✅ Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-3 pb-6">
             {currentPage > 0 && (
