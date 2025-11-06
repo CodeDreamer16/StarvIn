@@ -113,16 +113,6 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
                 Edit Profile
               </button>
               <button
-                onClick={() => {
-                  setShowSettings(false);
-                  onEditPreferences();
-                }}
-                className="w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-white/10 transition"
-              >
-                <Settings className="w-4 h-4 text-[#4C6EF5]" />
-                Edit Preferences
-              </button>
-              <button
                 onClick={handleSignOut}
                 disabled={signingOut}
                 className="w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-red-500/10 text-red-400 transition disabled:opacity-50"
@@ -156,7 +146,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         </p>
       </div>
 
-      {/* Edit Preferences (Main section button) */}
+      {/* Edit Preferences (Main Section) */}
       <div className="flex flex-col items-center gap-3 mt-4">
         <button
           onClick={onEditPreferences}
