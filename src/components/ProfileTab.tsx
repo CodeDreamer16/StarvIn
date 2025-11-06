@@ -48,6 +48,12 @@ export function ProfileTab() {
     alert("Profile picture upload coming soon 🚀");
   };
 
+  const formatMemberSince = (dateString: string) => {
+    if (!dateString) return "—";
+    const d = new Date(dateString);
+    return d.toLocaleString("default", { month: "long", year: "numeric" }); // e.g. November 2025
+  };
+
   return (
     <div className="flex-1 overflow-y-auto bg-[#0B0C10] text-white pb-24">
       {/* Cover section */}
@@ -73,16 +79,30 @@ export function ProfileTab() {
             <Camera className="w-4 h-4 text-white" />
           </button>
         </div>
-        <h2 className="mt-3 text-2xl font-semibold">{profile?.full_name || "User"}</h2>
+        <h2 className="mt-3 text-2xl font-semibold">
+          {profile?.full_name || "User"}
+        </h2>
         <p className="text-gray-400 text-sm">
-          Member since {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : "—"}
+          Member since {formatMemberSince(profile?.created_at)}
         </p>
       </div>
 
-      {/* Edit button */}
-      <div className="flex justify-center mt-4">
-        <button className="bg-white/10 hover:bg-white/20 px-6 py-2 rounded-xl text-sm font-medium transition">
+      {/* Edit buttons */}
+      <div className="flex flex-col items-center gap-3 mt-4">
+        {/* Edit Profile */}
+        <button
+          onClick={() => alert("Profile editing coming soon!")}
+          className="w-44 bg-white/10 hover:bg-white/20 border border-white/20 text-white py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all"
+        >
           Edit Profile
+        </button>
+
+        {/* Edit Preferences */}
+        <button
+          onClick={() => alert("Preference editor coming soon!")}
+          className="w-44 bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] text-white font-medium py-2.5 rounded-xl shadow-[0_0_15px_rgba(0,191,255,0.3)] hover:shadow-[0_0_25px_rgba(0,191,255,0.6)] hover:scale-[1.03] active:scale-[1.00] transition-all"
+        >
+          Edit Preferences
         </button>
       </div>
 
