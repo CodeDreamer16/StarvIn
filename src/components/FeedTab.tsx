@@ -198,21 +198,23 @@ export function FeedTab() {
     <>
       <div ref={scrollRef} className="flex-1 overflow-y-auto pb-24 bg-[#0B0C10]">
 
-        {/* 🌈 Modern Discover Header */}
+        {/* 🌊 Cyan Discover Header */}
         <div className="relative overflow-hidden px-6 pt-10 pb-12 bg-[#0B0C10]/80 backdrop-blur z-10">
+          {/* Floating Gradient Blobs */}
           <div className="absolute inset-0 overflow-hidden">
-            <div className="absolute -top-32 -left-20 w-96 h-96 bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] opacity-20 blur-3xl rounded-full animate-blob" />
-            <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-r from-[#7C3AED] to-[#4C6EF5] opacity-10 blur-2xl rounded-full animate-blob animation-delay-2000" />
+            <div className="absolute -top-32 -left-20 w-96 h-96 bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] opacity-20 blur-3xl rounded-full animate-blob" />
+            <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-r from-[#4C6EF5] to-[#00BFFF] opacity-10 blur-2xl rounded-full animate-blob animation-delay-2000" />
           </div>
 
+          {/* Header Content */}
           <div className="relative z-10 text-center">
-            <h1 className="text-5xl font-extrabold bg-gradient-to-r from-[#7C3AED] via-[#4C6EF5] to-[#7C3AED] bg-clip-text text-transparent animate-gradient-x mb-3">
+            <h1 className="text-5xl font-extrabold bg-gradient-to-r from-[#00BFFF] via-[#4C6EF5] to-[#00BFFF] bg-clip-text text-transparent animate-gradient-x mb-3">
               Discover
             </h1>
             <p className="text-gray-400 text-lg animate-fadeIn delay-200">
               Find events that match your interests
             </p>
-            <div className="mt-6 h-[1px] w-48 mx-auto bg-gradient-to-r from-[#4C6EF5]/0 via-[#7C3AED]/50 to-[#4C6EF5]/0 rounded-full" />
+            <div className="mt-6 h-[1px] w-48 mx-auto bg-gradient-to-r from-[#00BFFF]/0 via-[#00BFFF]/60 to-[#00BFFF]/0 rounded-full" />
           </div>
         </div>
 
@@ -241,8 +243,8 @@ export function FeedTab() {
                   data-event-card
                   className={`relative rounded-3xl overflow-hidden border border-white/10 backdrop-blur-md
                     bg-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.4)]
-                    transform transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_15px_45px_rgba(100,80,255,0.3)]
-                    hover:border-[#6D28D9]/40 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}
+                    transform transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_15px_45px_rgba(0,191,255,0.3)]
+                    hover:border-[#00BFFF]/40 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}
                   `}
                   style={{
                     transitionDelay: `${idx * 40}ms`,
@@ -271,7 +273,7 @@ export function FeedTab() {
                     <div className="mt-4 space-y-2">
                       <button
                         onClick={() => openModal(ev)}
-                        className="w-full bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] hover:from-[#5F7FFF] hover:to-[#8B5CF6] transition-all text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                        className="w-full bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] hover:from-[#1EC8FF] hover:to-[#5F8FFF] transition-all text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
                       >
                         <Eye className="w-4 h-4" /> View Details
                       </button>
@@ -290,13 +292,13 @@ export function FeedTab() {
                     onClick={() => handleSave(ev.id)}
                     className={`absolute top-3 right-3 z-10 p-2 rounded-full transition-all duration-300 
                       ${savedEvents.has(ev.id)
-                        ? 'bg-[#7C3AED]/20 hover:bg-[#7C3AED]/30'
+                        ? 'bg-[#00BFFF]/20 hover:bg-[#00BFFF]/30'
                         : 'bg-black/40 hover:bg-black/70 backdrop-blur-sm'}`}
                   >
                     <Bookmark
                       className={`w-5 h-5 transition-transform duration-300 
                         ${savedEvents.has(ev.id)
-                          ? 'fill-[#A78BFA] text-[#A78BFA] scale-110'
+                          ? 'fill-[#00BFFF] text-[#00BFFF] scale-110'
                           : 'text-white scale-100'}`}
                     />
                   </button>
@@ -321,7 +323,7 @@ export function FeedTab() {
             {currentPage + 1 < totalPages && (
               <button
                 onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
-                className="bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white px-6 py-3 rounded-xl hover:opacity-90 transition"
+                className="bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] text-white px-6 py-3 rounded-xl hover:opacity-90 transition"
               >
                 Next
               </button>
