@@ -25,28 +25,43 @@ interface Application { event_id: string }
 /** 🔎 Interest → keyword map (expandable) */
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'Wellness & Mental Health': [
-    'wellness','mental','therapy','yoga','stress','anxiety','support group','mindfulness','meditation','health','well-being','wellbeing','care'
+    'wellness', 'mental health', 'therapy', 'yoga', 'stress', 'anxiety', 'mindfulness',
+    'student wellness hub', 'health support', 'meditation', 'relaxation', 'self-care',
+    'counseling', 'mental', 'support group', 'mental wellbeing'
   ],
   'Career & Professional Development': [
-    'career','job','internship','resume','cv','linkedin','recruit','network','networking','employer','interview','negotiation','workshop career'
+    'career', 'internship', 'job', 'resume', 'cv', 'networking', 'linkedin',
+    'career planning service', 'career advising', 'career fair', 'employability',
+    'industry', 'professional development', 'interview skills', 'graduate opportunities',
+    'skillsets', 'graduate workshops', 'apa citation', 'apa', 'productivity',
+    'time management', 'academic writing', 'study skills', 'communication skills',
+    'negotiation', 'graduate life', 'professional skills', 'writing workshop',
+    'career services', 'career prep', 'career readiness', 'graduate student',
+    'success strategies'
   ],
   'Workshops & Skill Building': [
-    'workshop','skill','training','tutorial','learn','skillsets','certificate','session','hands-on','how to','seminar'
+    'workshop', 'training', 'skill building', 'tutorial', 'learning', 'skillsets',
+    'graduate workshops', 'academic skills', 'study skills', 'seminar', 'hands-on'
   ],
   'Social & Community Events': [
-    'social','community','mixer','meetup','gathering','party','network','connect','hangout','celebration','circle'
+    'social', 'community', 'meetup', 'event', 'gathering', 'party', 'connect',
+    'student life', 'campus life', 'community event', 'peer network', 'hangout', 'mix and mingle'
   ],
   'Arts & Creative Activities': [
-    'art','creative','hive','studio','crochet','craft','drawing','painting','music','film','theatre','photography'
+    'art', 'creative', 'craft', 'drawing', 'painting', 'film', 'music', 'photography',
+    'studio', 'gallery', 'design', 'writing', 'artistic', 'performance'
   ],
   'Academic Support & Research': [
-    'academic','research','library','thesis','phd','masters','dissertation','citation','apa','study tips','writing','grad'
+    'academic', 'research', 'study', 'writing', 'library', 'thesis', 'citation', 'apa',
+    'study group', 'learning services', 'grad research', 'study tips', 'exam prep'
   ],
   'International Student Services': [
-    'international','immigration','iss','visa','study permit','caq','global','newcomer','intercultural'
+    'international', 'study permit', 'visa', 'iss', 'immigration', 'caq',
+    'global learning', 'international students', 'study abroad', 'intercultural', 'travel', 'exchange'
   ],
   'Leadership & Personal Growth': [
-    'leadership','leader','personal growth','mindset','emerging leaders','development','imposter syndrome','coach'
+    'leadership', 'leader', 'development', 'growth', 'mindset', 'emerging leaders',
+    'motivation', 'confidence', 'public speaking', 'personal growth', 'imposter syndrome', 'self improvement'
   ],
 };
 
@@ -70,27 +85,47 @@ const matchesByInterests = (ev: Event, interests: string[]) => {
   const text = normalize(
     `${ev.title} ${stripHTML(ev.description)} ${ev.event_type ?? ''} ${ev.organization ?? ''}`
   );
+  const typeNorm = normalize(ev.event_type);
+  let matchedInterest: string | null = null;
 
-  // Try keyword matching first
   for (const interest of interests) {
-    const kw = CATEGORY_KEYWORDS[interest] ?? [];
-    if (kw.length) {
-      for (const word of kw) {
-        if (text.includes(normalize(word))) return true;
+    const kwList = CATEGORY_KEYWORDS[interest] ?? [];
+
+    // 1️⃣ Strong match if event_type directly matches interest
+    if (typeNorm && typeNorm.includes(normalize(interest))) {
+      matchedInterest = interest;
+      break;
+    }
+
+    // 2️⃣ Otherwise, try word-level matching (requires exact keyword presence)
+    for (const kw of kwList) {
+      const kwNorm = normalize(kw);
+      const regex = new RegExp(`\\b${kwNorm}\\b`, 'i'); // whole-word match
+      if (regex.test(text)) {
+        matchedInterest = interest;
+        break;
       }
     }
+
+    if (matchedInterest) break;
   }
 
-  // Fallback: compare normalized interest name with event_type
-  const typeNorm = normalize(ev.event_type);
-  if (typeNorm) {
-    for (const interest of interests) {
-      if (typeNorm.includes(normalize(interest))) return true;
-    }
+  // 🧩 Logging for debugging:
+  if (!matchedInterest && interests.length > 0) {
+    console.warn('⚠️ No interest match for:', {
+      event: {
+        title: ev.title,
+        event_type: ev.event_type,
+        organization: ev.organization,
+      },
+      checkedInterests: interests,
+      previewText: text.slice(0, 200) + '...',
+    });
   }
 
-  return false;
+  return !!matchedInterest;
 };
+
 
 export function FeedTab() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -161,12 +196,29 @@ export function FeedTab() {
     });
   }, [events, currentPage]);
 
-  /** Smooth scroll to top when paging */
+  const scrollToTop = () => {
+    if (containerRef.current) {
+      containerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage((p) => {
+      const next = Math.min(totalPages - 1, p + 1);
+      return next;
+    });
+    scrollToTop();
+  };
+
+  const handlePreviousPage = () => {
+    setCurrentPage((p) => {
+      const prev = Math.max(0, p - 1);
+      return prev;
+    });
+    scrollToTop();
+  };
+
   useEffect(() => {
-    if (!containerRef.current) return;
-    const el = containerRef.current;
-    el.scrollTo({ top: 0, behavior: 'smooth' });
-    // reset animation flags for fresh fade-in on each page
     setVisibleCards(new Set());
   }, [currentPage]);
 
@@ -421,7 +473,7 @@ export function FeedTab() {
                 <p className="text-gray-400 text-sm">Page {currentPage + 1} of {totalPages}</p>
                 {currentPage > 0 && (
                   <button
-                    onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                    onClick={handlePreviousPage}
                     className="bg-[#1a1d29] text-white font-semibold px-6 py-3 rounded-xl hover:bg-[#252837] transition-colors border border-gray-700"
                   >
                     Previous
@@ -429,7 +481,7 @@ export function FeedTab() {
                 )}
                 {currentPage + 1 < totalPages && (
                   <button
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                    onClick={handleNextPage}
                     className="bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white font-semibold px-8 py-3 rounded-xl hover:opacity-90 transition-opacity"
                   >
                     Next Page
