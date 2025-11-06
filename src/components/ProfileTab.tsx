@@ -1,184 +1,82 @@
-import { useState, useEffect } from 'react';
-import { LogOut, Mail, Calendar, Bookmark, ChevronRight, Settings } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-
-interface Profile {
-  display_name: string;
-  email: string;
-  created_at: string;
-}
-
-interface Stats {
-  applications: number;
-  savedEvents: number;
-  interests: number;
-}
+import { LogOut, Settings, Bookmark, FileText, Star } from 'lucide-react';
 
 interface ProfileTabProps {
-  onEditPreferences?: () => void;
+  onEditPreferences: () => void;
 }
 
 export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [stats, setStats] = useState<Stats>({ applications: 0, savedEvents: 0, interests: 0 });
-  const [loading, setLoading] = useState(true);
-  const { user, signOut } = useAuth();
-
-  useEffect(() => {
-    loadProfile();
-    loadStats();
-  }, []);
-
-  const loadProfile = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('display_name, email, created_at')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (error) throw error;
-      setProfile(data);
-    } catch (error) {
-      console.error('Error loading profile:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadStats = async () => {
-    if (!user) return;
-
-    try {
-      const [applicationsRes, savedRes, interestsRes] = await Promise.all([
-        supabase.from('applications').select('id', { count: 'exact' }).eq('user_id', user.id),
-        supabase.from('saved_events').select('event_id', { count: 'exact' }).eq('user_id', user.id),
-        supabase.from('user_preferences').select('interest_name', { count: 'exact' }).eq('user_id', user.id),
-      ]);
-
-      setStats({
-        applications: applicationsRes.count || 0,
-        savedEvents: savedRes.count || 0,
-        interests: interestsRes.count || 0,
-      });
-    } catch (error) {
-      console.error('Error loading stats:', error);
-    }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      window.location.reload();
-    } catch (error) {
-      console.error('Error signing out:', error);
-      alert('Failed to sign out. Please try again.');
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'long',
-      year: 'numeric',
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-white">Loading profile...</div>
-      </div>
-    );
-  }
+  const { user } = useAuth();
 
   return (
-    <div className="flex-1 overflow-y-auto pb-24">
-      <div className="px-4 pt-6 pb-6">
-        <h1 className="text-3xl font-bold text-white mb-1">Profile</h1>
-        <p className="text-gray-400">Manage your account</p>
-      </div>
-
-      <div className="px-4 space-y-6">
-        <div className="bg-gradient-to-br from-[#4C6EF5]/20 to-[#7C3AED]/20 rounded-3xl p-6 border border-[#4C6EF5]/30">
-          <div className="flex items-center gap-4">
-            <div className="w-20 h-20 bg-gradient-to-br from-[#4C6EF5] to-[#7C3AED] rounded-full flex items-center justify-center text-white text-3xl font-bold">
-              {profile?.display_name?.charAt(0)?.toUpperCase() || 'U'}
+    <div className="min-h-screen bg-[#0B0C10] text-white pb-28">
+      {/* Header */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-[#4C6EF5] via-[#7C3AED] to-[#9F7AEA] p-8 rounded-b-3xl shadow-[0_4px_30px_rgba(0,0,0,0.3)]">
+        <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
+        <div className="relative flex flex-col sm:flex-row items-center sm:items-end justify-between z-10">
+          <div className="flex items-center gap-5">
+            <div className="w-20 h-20 bg-[#1a1d29] rounded-full flex items-center justify-center text-3xl font-bold">
+              {user?.email?.[0]?.toUpperCase() ?? 'U'}
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-white">{profile?.display_name || 'User'}</h2>
-              <p className="text-gray-300 text-sm flex items-center gap-2">
-                <Mail className="w-4 h-4" />
-                {profile?.email}
+              <h1 className="text-2xl font-bold">{user?.user_metadata?.full_name || 'User'}</h1>
+              <p className="text-gray-200 text-sm">{user?.email}</p>
+              <p className="text-gray-400 text-xs mt-1">
+                Member since {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
               </p>
-              {profile?.created_at && (
-                <p className="text-gray-400 text-xs mt-1">
-                  Member since {formatDate(profile.created_at)}
-                </p>
-              )}
             </div>
           </div>
+          <button
+            onClick={onEditPreferences}
+            className="mt-6 sm:mt-0 bg-white/10 hover:bg-white/20 border border-white/20 text-white py-2 px-4 rounded-xl flex items-center gap-2 transition-all"
+          >
+            <Settings className="w-4 h-4" /> Edit Preferences
+          </button>
         </div>
+      </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-[#1a1d29] rounded-2xl p-4 border border-gray-800 text-center">
-            <div className="text-3xl font-bold text-white mb-1">{stats.applications}</div>
-            <div className="text-gray-400 text-xs">Applications</div>
-          </div>
-          <div className="bg-[#1a1d29] rounded-2xl p-4 border border-gray-800 text-center">
-            <div className="text-3xl font-bold text-white mb-1">{stats.savedEvents}</div>
-            <div className="text-gray-400 text-xs">Saved</div>
-          </div>
-          <div className="bg-[#1a1d29] rounded-2xl p-4 border border-gray-800 text-center">
-            <div className="text-3xl font-bold text-white mb-1">{stats.interests}</div>
-            <div className="text-gray-400 text-xs">Interests</div>
-          </div>
+      {/* Stats Section */}
+      <div className="grid grid-cols-3 gap-4 px-6 mt-6">
+        <div className="rounded-2xl bg-white/5 border border-white/10 p-4 text-center hover:bg-white/10 transition-all shadow-inner">
+          <FileText className="w-6 h-6 mx-auto mb-2 text-[#4C6EF5]" />
+          <h3 className="text-lg font-semibold">4</h3>
+          <p className="text-gray-400 text-xs">Applications</p>
         </div>
-
-        <div className="space-y-3">
-          <div className="bg-[#1a1d29] rounded-2xl border border-gray-800 overflow-hidden">
-            <button className="w-full p-5 flex items-center justify-between hover:bg-gray-800/30 transition-colors">
-              <div className="flex items-center gap-3">
-                <Calendar className="w-5 h-5 text-gray-400" />
-                <span className="text-white font-medium">My Applications</span>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </button>
-          </div>
-
-          <div className="bg-[#1a1d29] rounded-2xl border border-gray-800 overflow-hidden">
-            <button className="w-full p-5 flex items-center justify-between hover:bg-gray-800/30 transition-colors">
-              <div className="flex items-center gap-3">
-                <Bookmark className="w-5 h-5 text-gray-400" />
-                <span className="text-white font-medium">Saved Events</span>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </button>
-          </div>
-
-          <div className="bg-[#1a1d29] rounded-2xl border border-gray-800 overflow-hidden">
-            <button
-              onClick={onEditPreferences}
-              className="w-full p-5 flex items-center justify-between hover:bg-gray-800/30 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <Settings className="w-5 h-5 text-gray-400" />
-                <span className="text-white font-medium">Edit Preferences</span>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </button>
-          </div>
+        <div className="rounded-2xl bg-white/5 border border-white/10 p-4 text-center hover:bg-white/10 transition-all shadow-inner">
+          <Bookmark className="w-6 h-6 mx-auto mb-2 text-[#A78BFA]" />
+          <h3 className="text-lg font-semibold">0</h3>
+          <p className="text-gray-400 text-xs">Saved</p>
         </div>
+        <div className="rounded-2xl bg-white/5 border border-white/10 p-4 text-center hover:bg-white/10 transition-all shadow-inner">
+          <Star className="w-6 h-6 mx-auto mb-2 text-[#FACC15]" />
+          <h3 className="text-lg font-semibold">1</h3>
+          <p className="text-gray-400 text-xs">Interests</p>
+        </div>
+      </div>
 
-        <button
-          onClick={handleSignOut}
-          className="w-full bg-red-500/10 border border-red-500/30 text-red-400 font-semibold py-4 rounded-2xl hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
-        >
-          <LogOut className="w-5 h-5" />
-          Sign Out
+      {/* Actions Section */}
+      <div className="mt-10 px-6 space-y-4">
+        {[
+          { title: 'My Applications', icon: <FileText className="w-5 h-5 text-[#4C6EF5]" /> },
+          { title: 'Saved Events', icon: <Bookmark className="w-5 h-5 text-[#A78BFA]" /> },
+          { title: 'Edit Preferences', icon: <Settings className="w-5 h-5 text-[#9F7AEA]" />, onClick: onEditPreferences },
+        ].map(({ title, icon, onClick }, i) => (
+          <button
+            key={i}
+            onClick={onClick}
+            className="w-full flex justify-between items-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl py-4 px-5 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              {icon}
+              <span className="font-medium text-sm">{title}</span>
+            </div>
+            <span className="text-gray-400 group-hover:text-white transition">›</span>
+          </button>
+        ))}
+
+        {/* Sign Out */}
+        <button className="w-full bg-[#7f1d1d]/60 hover:bg-[#b91c1c]/80 text-red-300 hover:text-white font-medium rounded-2xl py-3 flex items-center justify-center gap-2 transition-all">
+          <LogOut className="w-4 h-4" /> Sign Out
         </button>
       </div>
     </div>
