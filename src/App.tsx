@@ -107,6 +107,25 @@ function AppContent() {
     }, 300);
   };
 
+  const handleEditPreferences = async () => {
+    if (!user) return;
+
+    try {
+      await supabase
+        .from('profiles')
+        .update({ onboarded: false })
+        .eq('id', user.id);
+
+      setFadeIn(false);
+      setTimeout(() => {
+        setIsOnboarded(false);
+        setTimeout(() => setFadeIn(true), 50);
+      }, 300);
+    } catch (error) {
+      console.error('Error updating onboarding status:', error);
+    }
+  };
+
   return (
     <div className="relative min-h-screen bg-[#0B0C10]">
       {showSplash ? (
@@ -136,7 +155,7 @@ function AppContent() {
               <div className="flex-1 flex flex-col overflow-hidden">
                 {activeTab === 'feed' && <FeedTab />}
                 {activeTab === 'applications' && <ApplicationsTab />}
-                {activeTab === 'profile' && <ProfileTab />}
+                {activeTab === 'profile' && <ProfileTab onEditPreferences={handleEditPreferences} />}
               </div>
               <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
             </div>

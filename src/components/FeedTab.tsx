@@ -28,19 +28,20 @@ interface Application {
 }
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  'Applications / Deadlines': ['application', 'deadline', 'apply', 'registration', 'submit', 'due date', 'closing date'],
-  'Career Fairs / Industry Events': ['career', 'fair', 'industry', 'employer', 'recruitment', 'job', 'internship', 'company'],
-  'Design Teams & Clubs': ['design', 'team', 'club', 'robotics', 'engineering', 'project team', 'student team'],
-  'Hackathons / Competitions': ['hackathon', 'competition', 'contest', 'challenge', 'coding', 'hack', 'prize'],
-  'Networking & Meetups': ['networking', 'meetup', 'connect', 'social', 'mixer', 'coffee chat', 'meet and greet'],
-  'Research / SURE Opportunities': ['research', 'sure', 'laboratory', 'study', 'academic', 'thesis', 'undergraduate research'],
-  'Tech Talks / Guest Lectures': ['talk', 'lecture', 'speaker', 'presentation', 'seminar', 'guest', 'keynote'],
-  'Workshops & Skills Sessions': ['workshop', 'training', 'tutorial', 'skill', 'learn', 'session', 'course', 'class'],
+  'Wellness & Mental Health': ['wellness', 'mental health', 'therapy', 'yoga', 'stress', 'anxiety', 'support group', 'animal therapy', 'mindfulness', 'meditation', 'walk', 'paws', 'health'],
+  'Career & Professional Development': ['career', 'job', 'linkedin', 'internship', 'resume', 'professional', 'networking', 'employment', 'headshot', 'negotiation', 'industry'],
+  'Workshops & Skill Building': ['workshop', 'skill', 'training', 'tutorial', 'learn', 'apa', 'citation', 'grad breakfast', 'skillsets'],
+  'Social & Community Events': ['social', 'community', 'meetup', 'connect', 'party', 'event', 'gathering', 'contemplative', 'after the party'],
+  'Arts & Creative Activities': ['art', 'creative', 'hive', 'studio', 'crochet', 'craft', 'artistic', 'making'],
+  'Academic Support & Research': ['academic', 'research', 'library', 'phd', 'thesis', 'study', 'graduate', 'masters', 'dissertation'],
+  'International Student Services': ['international', 'immigration', 'iss', 'visa', 'study permit', 'caq', 'legal', 'document'],
+  'Leadership & Personal Growth': ['leadership', 'leader', 'personal growth', 'emerging leaders', 'development', 'mindset', 'imposter syndrome'],
 };
 
 export function FeedTab() {
   const [events, setEvents] = useState<Event[]>([]);
-  const [displayCount, setDisplayCount] = useState(20);
+  const [currentPage, setCurrentPage] = useState(0);
+  const eventsPerPage = 10;
   const [savedEvents, setSavedEvents] = useState<Set<string>>(new Set());
   const [appliedEvents, setAppliedEvents] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -255,14 +256,17 @@ export function FeedTab() {
         </div>
 
       {events.length === 0 && !loading ? (
-        <div className="flex items-center justify-center h-64">
-          <p className="text-gray-400 text-center px-8">
-            No events yet — check back soon!
+        <div className="flex flex-col items-center justify-center h-64 px-8">
+          <p className="text-gray-400 text-center mb-4">
+            No upcoming events match your interests right now.
+          </p>
+          <p className="text-gray-500 text-sm text-center">
+            Try updating your preferences to discover more events!
           </p>
         </div>
       ) : (
         <div className="px-4 space-y-4 pb-4">
-          {events.slice(0, displayCount).map((event, index) => {
+          {events.slice(currentPage * eventsPerPage, (currentPage + 1) * eventsPerPage).map((event, index) => {
           const isSaved = savedEvents.has(event.id);
           const isApplied = appliedEvents.has(event.id);
           const isVisible = visibleCards.has(`event-${event.id}`);
@@ -377,14 +381,24 @@ export function FeedTab() {
           );
           })}
 
-          {displayCount < events.length && (
-            <div className="flex justify-center pt-4 pb-2">
-              <button
-                onClick={() => setDisplayCount(prev => prev + 20)}
-                className="bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white font-semibold px-8 py-3 rounded-xl hover:opacity-90 transition-opacity"
-              >
-                Load More
-              </button>
+          {events.length > eventsPerPage && (
+            <div className="flex justify-center gap-3 pt-4 pb-2">
+              {currentPage > 0 && (
+                <button
+                  onClick={() => setCurrentPage(prev => prev - 1)}
+                  className="bg-[#1a1d29] text-white font-semibold px-6 py-3 rounded-xl hover:bg-[#252837] transition-colors border border-gray-700"
+                >
+                  Previous
+                </button>
+              )}
+              {(currentPage + 1) * eventsPerPage < events.length && (
+                <button
+                  onClick={() => setCurrentPage(prev => prev + 1)}
+                  className="bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white font-semibold px-8 py-3 rounded-xl hover:opacity-90 transition-opacity"
+                >
+                  Load More
+                </button>
+              )}
             </div>
           )}
         </div>
