@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { LogOut, Settings, FileText, Bookmark, Star, Mail, Instagram } from 'lucide-react';
 
 interface ProfileTabProps {
@@ -7,6 +9,36 @@ interface ProfileTabProps {
 
 export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
   const { user } = useAuth();
+  const [applicationsCount, setApplicationsCount] = useState(0);
+  const [savedCount, setSavedCount] = useState(0);
+  const [interestsCount, setInterestsCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  // 🔹 Fetch counts dynamically
+  useEffect(() => {
+    if (!user) return;
+    fetchUserStats();
+  }, [user]);
+
+  const fetchUserStats = async () => {
+    try {
+      setLoading(true);
+
+      const [apps, saved, prefs] = await Promise.all([
+        supabase.from('applications').select('id', { count: 'exact' }).eq('user_id', user.id),
+        supabase.from('saved_events').select('id', { count: 'exact' }).eq('user_id', user.id),
+        supabase.from('user_preferences').select('interest_name', { count: 'exact' }).eq('user_id', user.id),
+      ]);
+
+      setApplicationsCount(apps.count || 0);
+      setSavedCount(saved.count || 0);
+      setInterestsCount(prefs.count || 0);
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0B0C10] text-white pb-28 flex flex-col justify-between">
@@ -41,17 +73,23 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         <div className="grid grid-cols-3 gap-4 px-6 mt-6">
           <div className="rounded-2xl bg-white/5 border border-white/10 p-4 text-center hover:bg-white/10 transition-all shadow-inner">
             <FileText className="w-6 h-6 mx-auto mb-2 text-[#4C6EF5]" />
-            <h3 className="text-lg font-semibold">4</h3>
+            <h3 className="text-lg font-semibold">
+              {loading ? '—' : applicationsCount}
+            </h3>
             <p className="text-gray-400 text-xs">Applications</p>
           </div>
           <div className="rounded-2xl bg-white/5 border border-white/10 p-4 text-center hover:bg-white/10 transition-all shadow-inner">
             <Bookmark className="w-6 h-6 mx-auto mb-2 text-[#A78BFA]" />
-            <h3 className="text-lg font-semibold">0</h3>
+            <h3 className="text-lg font-semibold">
+              {loading ? '—' : savedCount}
+            </h3>
             <p className="text-gray-400 text-xs">Saved</p>
           </div>
           <div className="rounded-2xl bg-white/5 border border-white/10 p-4 text-center hover:bg-white/10 transition-all shadow-inner">
             <Star className="w-6 h-6 mx-auto mb-2 text-[#FACC15]" />
-            <h3 className="text-lg font-semibold">1</h3>
+            <h3 className="text-lg font-semibold">
+              {loading ? '—' : interestsCount}
+            </h3>
             <p className="text-gray-400 text-xs">Interests</p>
           </div>
         </div>
