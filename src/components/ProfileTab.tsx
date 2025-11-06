@@ -4,18 +4,17 @@ import {
   Bell,
   Settings,
   LogOut,
-  User,
   Upload,
   Trash2,
   Eye,
   CheckCircle,
+  X,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
-// ✅ Default avatar placeholder (clean gradient user silhouette)
 const DEFAULT_AVATAR =
-  "https://cdn-icons-png.flaticon.com/512/847/847969.png";
+  "https://cdn-icons-png.flaticon.com/512/847/847969.png"; // neutral fallback
 
 interface ProfileTabProps {
   onEditPreferences: () => void;
@@ -30,12 +29,12 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
   const [uploading, setUploading] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
 
   const settingsRef = useRef<HTMLDivElement | null>(null);
   const cameraRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // --------------------- LOAD PROFILE + NOTIFICATIONS ----------------------
   useEffect(() => {
     if (user) {
       loadProfile();
@@ -48,12 +47,10 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
       if (
         settingsRef.current &&
         !settingsRef.current.contains(e.target as Node)
-      ) {
+      )
         setShowSettings(false);
-      }
-      if (cameraRef.current && !cameraRef.current.contains(e.target as Node)) {
+      if (cameraRef.current && !cameraRef.current.contains(e.target as Node))
         setShowCameraMenu(false);
-      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -75,7 +72,6 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
     ]);
   };
 
-  // ------------------------- AVATAR HANDLERS -------------------------
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       const file = e.target.files?.[0];
@@ -133,13 +129,6 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
     }
   };
 
-  const handleViewAvatar = () => {
-    const url = profile?.avatar_url || DEFAULT_AVATAR;
-    window.open(url, "_blank");
-    setShowCameraMenu(false);
-  };
-
-  // ------------------------ SIGN OUT ------------------------
   const handleSignOut = async () => {
     try {
       setSigningOut(true);
@@ -155,7 +144,6 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
     }
   };
 
-  // -------------------------- UI --------------------------
   return (
     <div className="flex-1 overflow-y-auto bg-[#0B0C10] text-white pb-24">
       {/* 🖼️ Banner */}
@@ -179,11 +167,11 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
           </button>
 
           {showSettings && (
-            <div className="absolute right-0 mt-3 w-48 bg-[#1a1d29] border border-white/10 rounded-xl shadow-lg overflow-hidden animate-fadeIn z-50">
+            <div className="absolute right-0 mt-3 w-44 bg-[#1a1d29]/90 backdrop-blur-md border border-white/10 rounded-xl shadow-lg overflow-hidden animate-fadeIn z-50">
               <button
                 onClick={handleSignOut}
                 disabled={signingOut}
-                className="w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-red-500/10 text-red-400 transition disabled:opacity-50"
+                className="w-full text-left px-3 py-2.5 flex items-center gap-2 text-sm hover:bg-red-500/10 text-red-400 transition disabled:opacity-50"
               >
                 <LogOut className="w-4 h-4" />
                 {signingOut ? "Signing out..." : "Sign Out"}
@@ -206,11 +194,11 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
           {uploadSuccess && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
               <div className="absolute inset-0 rounded-full bg-[#00FFAA]/15 animate-pulse" />
-              <CheckCircle className="w-8 h-8 text-[#00FFAA] opacity-90 animate-fadeIn" />
+              <CheckCircle className="w-7 h-7 text-[#00FFAA] opacity-90 animate-fadeIn" />
             </div>
           )}
 
-          {/* Camera icon */}
+          {/* 📸 Camera icon */}
           <button
             onClick={() => setShowCameraMenu(!showCameraMenu)}
             disabled={uploading}
@@ -219,26 +207,29 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
             <Camera className="w-4 h-4 text-white" />
           </button>
 
-          {/* 📸 Camera menu dropdown */}
+          {/* 🎛️ Camera dropdown (smaller + cleaner) */}
           {showCameraMenu && (
-            <div className="absolute bottom-12 right-0 w-40 bg-[#1a1d29] border border-white/10 rounded-xl shadow-lg overflow-hidden animate-fadeIn z-50">
+            <div className="absolute bottom-12 right-0 w-36 bg-[#1a1d29]/90 backdrop-blur-md border border-white/10 rounded-xl shadow-lg overflow-hidden animate-fadeIn z-50 text-sm">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-white/10 transition"
+                className="w-full text-left px-3 py-2.5 flex items-center gap-2 hover:bg-white/10 transition text-gray-200"
               >
                 <Upload className="w-4 h-4 text-[#00BFFF]" />
                 Upload Photo
               </button>
               <button
-                onClick={handleViewAvatar}
-                className="w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-white/10 transition"
+                onClick={() => {
+                  setShowAvatarModal(true);
+                  setShowCameraMenu(false);
+                }}
+                className="w-full text-left px-3 py-2.5 flex items-center gap-2 hover:bg-white/10 transition text-gray-200"
               >
                 <Eye className="w-4 h-4 text-[#4C6EF5]" />
                 View Photo
               </button>
               <button
                 onClick={handleRemoveAvatar}
-                className="w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-red-500/10 text-red-400 transition"
+                className="w-full text-left px-3 py-2.5 flex items-center gap-2 hover:bg-red-500/10 text-red-400 transition"
               >
                 <Trash2 className="w-4 h-4" />
                 Remove Photo
@@ -296,6 +287,25 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
           <p className="text-gray-400 text-center">No new notifications</p>
         )}
       </div>
+
+      {/* 🖼️ Avatar Modal (in-app viewer) */}
+      {showAvatarModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
+          <div className="relative bg-[#11121A] rounded-3xl shadow-xl p-4 w-80 h-80 flex items-center justify-center">
+            <img
+              src={profile?.avatar_url || DEFAULT_AVATAR}
+              alt="Profile zoom"
+              className="w-64 h-64 object-cover rounded-2xl border border-white/10"
+            />
+            <button
+              onClick={() => setShowAvatarModal(false)}
+              className="absolute top-3 right-3 p-1.5 bg-white/10 hover:bg-white/20 rounded-full transition"
+            >
+              <X className="w-5 h-5 text-gray-300 hover:text-white" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
