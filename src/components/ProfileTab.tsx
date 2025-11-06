@@ -35,7 +35,6 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
   const cameraRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Load cached avatar per user for instant UI
   useEffect(() => {
     if (!user) return;
     const cachedAvatar = localStorage.getItem(`avatar_url_${user.id}`);
@@ -64,32 +63,25 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
 
   const loadProfile = async () => {
     if (!user) return;
-
     const { data, error } = await supabase
       .from("profiles")
       .select("full_name, avatar_url")
       .eq("id", user.id)
       .single();
-
-    if (error) {
-      console.error("Error loading profile:", error.message);
-      return;
-    }
+    if (error) return console.error("Error loading profile:", error.message);
 
     if (!data) {
       const { error: insertError } = await supabase
         .from("profiles")
         .insert([{ id: user.id, full_name: user.email?.split("@")[0] }]);
-      if (insertError)
-        console.error("Error creating profile:", insertError.message);
+      if (insertError) console.error("Error creating profile:", insertError.message);
       setProfile({ full_name: user.email?.split("@")[0], avatar_url: null });
       return;
     }
 
     setProfile(data);
-    if (data.avatar_url) {
+    if (data.avatar_url)
       localStorage.setItem(`avatar_url_${user.id}`, data.avatar_url);
-    }
   };
 
   const loadNotifications = async () => {
@@ -104,32 +96,19 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
       const file = e.target.files?.[0];
       if (!file || !user) return;
       setUploading(true);
-
       const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}-${Date.now()}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
-
       const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: true,
-          contentType: file.type,
-        });
+        .upload(filePath, file, { cacheControl: "3600", upsert: true });
       if (uploadError) throw uploadError;
 
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("avatars").getPublicUrl(filePath);
+      const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
+      await supabase.from("profiles").update({ avatar_url: data.publicUrl }).eq("id", user.id);
 
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ avatar_url: publicUrl })
-        .eq("id", user.id);
-      if (updateError) throw updateError;
-
-      setProfile((p: any) => ({ ...p, avatar_url: publicUrl }));
-      localStorage.setItem(`avatar_url_${user.id}`, publicUrl);
+      setProfile((p: any) => ({ ...p, avatar_url: data.publicUrl }));
+      localStorage.setItem(`avatar_url_${user.id}`, data.publicUrl);
 
       setUploadSuccess(true);
       setTimeout(() => setUploadSuccess(false), 1200);
@@ -145,17 +124,11 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
   const handleRemoveAvatar = async () => {
     if (!user) return;
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ avatar_url: null })
-        .eq("id", user.id);
-      if (error) throw error;
-
+      await supabase.from("profiles").update({ avatar_url: null }).eq("id", user.id);
       setProfile((p: any) => ({ ...p, avatar_url: null }));
       localStorage.removeItem(`avatar_url_${user.id}`);
       setShowCameraMenu(false);
-    } catch (err) {
-      console.error(err);
+    } catch {
       alert("Failed to remove photo.");
     }
   };
@@ -167,8 +140,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
       if (error) throw error;
       if (contextSignOut) await contextSignOut();
       window.location.reload();
-    } catch (err) {
-      console.error("Sign out error:", err);
+    } catch {
       alert("Failed to sign out. Please try again.");
     } finally {
       setSigningOut(false);
@@ -184,18 +156,25 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
     <div className="flex-1 overflow-y-auto bg-[#0B0C10] text-white pb-24">
 
       {/* 🖼️ Animated Banner */}
-      <div className="relative h-44 overflow-hidden bg-gradient-to-r from-[#00BFFF] via-[#4C6EF5] to-[#00BFFF] animate-banner-glow">
-        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-[#0B0C10]/80 z-10" />
-        <div className="absolute inset-0 animate-pulse-gradient opacity-40" />
+      <div className="relative h-44 overflow-hidden bg-gradient-to-r from-[#00BFFF] via-[#4C6EF5] to-[#00BFFF] z-0">
+        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-[#0B0C10]/80 z-0" />
+
+        {/* Floating Icons */}
+        <div className="absolute inset-0 opacity-40 z-0 pointer-events-none">
+          <span className="absolute text-white/30 text-xl animate-float-slow" style={{ top: "20%", left: "10%" }}>🎓</span>
+          <span className="absolute text-white/30 text-xl animate-float-slow2" style={{ top: "40%", left: "30%" }}>📅</span>
+          <span className="absolute text-white/30 text-xl animate-float-slow3" style={{ top: "25%", right: "20%" }}>🏆</span>
+          <span className="absolute text-white/30 text-xl animate-float-slow4" style={{ top: "50%", right: "10%" }}>📍</span>
+        </div>
 
         {/* Tagline */}
-        <div className="absolute inset-0 flex items-center justify-center text-center z-20">
+        <div className="absolute inset-0 flex items-center justify-center text-center z-10">
           <h1
-            className="text-3xl font-semibold text-white/20 tracking-wide select-none"
+            className="text-2xl font-semibold text-white/25 tracking-wide select-none font-[Poppins]"
             style={{
               textShadow:
-                "0 0 15px rgba(0,191,255,0.4), 0 0 30px rgba(76,110,245,0.3)",
-              letterSpacing: "0.06em",
+                "0 0 15px rgba(0,191,255,0.35), 0 0 25px rgba(76,110,245,0.3)",
+              letterSpacing: "0.05em",
             }}
           >
             Discover. Connect. Vybe.
@@ -203,7 +182,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         </div>
 
         {/* ⚙️ Settings */}
-        <div className="absolute top-4 right-4 z-30" ref={settingsRef}>
+        <div className="absolute top-4 right-4 z-20" ref={settingsRef}>
           <button
             onClick={() => setShowSettings(!showSettings)}
             className="transition-transform duration-300 hover:rotate-90 active:rotate-180"
@@ -227,12 +206,12 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
       </div>
 
       {/* 👤 Profile Photo */}
-      <div className="relative -mt-16 flex flex-col items-center">
+      <div className="relative -mt-16 flex flex-col items-center z-20">
         <div className="relative group" ref={cameraRef}>
           <img
             src={avatarSrc}
             alt="Profile"
-            className="w-28 h-28 rounded-full border-4 border-[#0B0C10] object-cover shadow-lg transition-all duration-300"
+            className="w-28 h-28 rounded-full border-4 border-[#0B0C10] object-cover shadow-lg transition-all duration-300 z-20"
           />
 
           {uploadSuccess && (
@@ -245,7 +224,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
           <button
             onClick={() => setShowCameraMenu(!showCameraMenu)}
             disabled={uploading}
-            className="absolute bottom-1 right-1 bg-[#00BFFF] p-2 rounded-full shadow hover:bg-[#1EC8FF] transition flex items-center justify-center z-10"
+            className="absolute bottom-1 right-1 bg-[#00BFFF] p-2 rounded-full shadow hover:bg-[#1EC8FF] transition flex items-center justify-center z-30"
           >
             <Camera className="w-4 h-4 text-white" />
           </button>
@@ -287,63 +266,3 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
             className="hidden"
           />
         </div>
-
-        <h2 className="mt-3 text-2xl font-semibold">
-          {profile?.full_name || user?.email?.split("@")[0] || "User"}
-        </h2>
-        <p className="text-gray-400 text-sm">
-          Signed in as {user?.email || "—"}
-        </p>
-      </div>
-
-      {/* ⚙️ Edit Preferences */}
-      <div className="flex flex-col items-center gap-3 mt-4">
-        <button
-          onClick={onEditPreferences}
-          className="w-44 bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] text-white font-medium py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(0,191,255,0.3)] hover:shadow-[0_0_25px_rgba(0,191,255,0.6)] hover:scale-[1.03] active:scale-[1.00] transition-all"
-        >
-          <Settings className="w-4 h-4" />
-          Edit Preferences
-        </button>
-      </div>
-
-      {/* 🔔 Notifications */}
-      <div className="mt-8 flex justify-center gap-10 border-b border-white/10">
-        <button className="pb-3 text-sm font-medium text-[#00BFFF] border-b-2 border-[#00BFFF]">
-          <Bell className="inline w-4 h-4 mr-1" /> Notifications
-        </button>
-      </div>
-
-      <div className="px-6 mt-6 space-y-4">
-        {notifications.map((n) => (
-          <div
-            key={n.id}
-            className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition"
-          >
-            <p className="font-medium">{n.title}</p>
-            <p className="text-sm text-gray-400 mt-1">{n.date}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* 🖼️ Avatar Modal */}
-      {showAvatarModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
-          <div className="relative bg-[#11121A]/90 rounded-3xl shadow-[0_0_20px_rgba(0,191,255,0.25)] p-4 w-72 h-72 flex items-center justify-center border border-white/5">
-            <img
-              src={avatarSrc}
-              alt="Profile zoom"
-              className="w-56 h-56 object-cover rounded-2xl border border-white/5"
-            />
-            <button
-              onClick={() => setShowAvatarModal(false)}
-              className="absolute top-3 right-3 p-1.5 bg-white/10 hover:bg-white/20 rounded-full transition"
-            >
-              <X className="w-5 h-5 text-gray-300 hover:text-white" />
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
