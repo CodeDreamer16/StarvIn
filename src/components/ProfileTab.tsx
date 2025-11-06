@@ -37,7 +37,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
   const loadProfile = async () => {
     const { data } = await supabase
       .from("profiles")
-      .select("full_name, avatar_url, banner_url, created_at")
+      .select("full_name, avatar_url, banner_url")
       .eq("id", user.id)
       .single();
     setProfile(data);
@@ -62,7 +62,11 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
 
       const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: file.type,
+        });
 
       if (uploadError) throw uploadError;
 
@@ -100,12 +104,6 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
     } finally {
       setSigningOut(false);
     }
-  };
-
-  const formatMemberSince = (dateString: string) => {
-    if (!dateString) return "—";
-    const d = new Date(dateString);
-    return d.toLocaleString("default", { month: "long", year: "numeric" });
   };
 
   return (
@@ -182,11 +180,13 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
             className="hidden"
           />
         </div>
+
+        {/* 👇 Display full name or email */}
         <h2 className="mt-3 text-2xl font-semibold">
-          {profile?.full_name || "User"}
+          {profile?.full_name || user?.email?.split("@")[0] || "User"}
         </h2>
         <p className="text-gray-400 text-sm">
-          Member since {formatMemberSince(profile?.created_at)}
+          Signed in as {user?.email || "—"}
         </p>
       </div>
 
