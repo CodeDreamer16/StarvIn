@@ -14,7 +14,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
 const DEFAULT_AVATAR =
-  "https://cdn-icons-png.flaticon.com/512/847/847969.png"; // neutral fallback
+  "https://cdn-icons-png.flaticon.com/512/847/847969.png";
 
 interface ProfileTabProps {
   onEditPreferences: () => void;
@@ -44,10 +44,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        settingsRef.current &&
-        !settingsRef.current.contains(e.target as Node)
-      )
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node))
         setShowSettings(false);
       if (cameraRef.current && !cameraRef.current.contains(e.target as Node))
         setShowCameraMenu(false);
@@ -190,7 +187,6 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
             className="w-28 h-28 rounded-full border-4 border-[#0B0C10] object-cover shadow-lg transition-all duration-300"
           />
 
-          {/* ✅ Success animation behind camera */}
           {uploadSuccess && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
               <div className="absolute inset-0 rounded-full bg-[#00FFAA]/15 animate-pulse" />
@@ -198,7 +194,6 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
             </div>
           )}
 
-          {/* 📸 Camera icon */}
           <button
             onClick={() => setShowCameraMenu(!showCameraMenu)}
             disabled={uploading}
@@ -207,12 +202,12 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
             <Camera className="w-4 h-4 text-white" />
           </button>
 
-          {/* 🎛️ Camera dropdown (smaller + cleaner) */}
+          {/* 🎛️ Refined Camera dropdown */}
           {showCameraMenu && (
-            <div className="absolute bottom-12 right-0 w-36 bg-[#1a1d29]/90 backdrop-blur-md border border-white/10 rounded-xl shadow-lg overflow-hidden animate-fadeIn z-50 text-sm">
+            <div className="absolute bottom-12 right-0 w-34 bg-[#1a1d29]/90 backdrop-blur-md border border-white/10 rounded-xl shadow-lg overflow-hidden animate-fadeIn z-50 text-[13px]">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full text-left px-3 py-2.5 flex items-center gap-2 hover:bg-white/10 transition text-gray-200"
+                className="w-full text-left px-3 py-2 flex items-center gap-1.5 hover:bg-white/10 transition text-gray-200"
               >
                 <Upload className="w-4 h-4 text-[#00BFFF]" />
                 Upload Photo
@@ -222,14 +217,14 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
                   setShowAvatarModal(true);
                   setShowCameraMenu(false);
                 }}
-                className="w-full text-left px-3 py-2.5 flex items-center gap-2 hover:bg-white/10 transition text-gray-200"
+                className="w-full text-left px-3 py-2 flex items-center gap-1.5 hover:bg-white/10 transition text-gray-200"
               >
                 <Eye className="w-4 h-4 text-[#4C6EF5]" />
                 View Photo
               </button>
               <button
                 onClick={handleRemoveAvatar}
-                className="w-full text-left px-3 py-2.5 flex items-center gap-2 hover:bg-red-500/10 text-red-400 transition"
+                className="w-full text-left px-3 py-2 flex items-center gap-1.5 hover:bg-red-500/10 text-red-400 transition"
               >
                 <Trash2 className="w-4 h-4" />
                 Remove Photo
@@ -273,29 +268,25 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
       </div>
 
       <div className="px-6 mt-6 space-y-4">
-        {notifications.length > 0 ? (
-          notifications.map((n) => (
-            <div
-              key={n.id}
-              className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition"
-            >
-              <p className="font-medium">{n.title}</p>
-              <p className="text-sm text-gray-400 mt-1">{n.date}</p>
-            </div>
-          ))
-        ) : (
-          <p className="text-gray-400 text-center">No new notifications</p>
-        )}
+        {notifications.map((n) => (
+          <div
+            key={n.id}
+            className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition"
+          >
+            <p className="font-medium">{n.title}</p>
+            <p className="text-sm text-gray-400 mt-1">{n.date}</p>
+          </div>
+        ))}
       </div>
 
-      {/* 🖼️ Avatar Modal (in-app viewer) */}
+      {/* 🖼️ Avatar Modal */}
       {showAvatarModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
-          <div className="relative bg-[#11121A] rounded-3xl shadow-xl p-4 w-80 h-80 flex items-center justify-center">
+          <div className="relative bg-[#11121A]/90 rounded-3xl shadow-[0_0_20px_rgba(0,191,255,0.25)] p-4 w-80 h-80 flex items-center justify-center border border-white/5">
             <img
               src={profile?.avatar_url || DEFAULT_AVATAR}
               alt="Profile zoom"
-              className="w-64 h-64 object-cover rounded-2xl border border-white/10"
+              className="w-64 h-64 object-cover rounded-2xl border border-white/5"
             />
             <button
               onClick={() => setShowAvatarModal(false)}
