@@ -18,232 +18,123 @@
 }
 
 @layer utilities {
+  /* -------------------------------------------------
+     🔹 Animated background blobs
+  ------------------------------------------------- */
   @keyframes blob {
-    0% {
-      transform: translate(0px, 0px) scale(1);
-    }
-    33% {
-      transform: translate(30px, -50px) scale(1.1);
-    }
-    66% {
-      transform: translate(-20px, 20px) scale(0.9);
-    }
-    100% {
-      transform: translate(0px, 0px) scale(1);
-    }
+    0% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(30px, -30px) scale(1.1); }
+    66% { transform: translate(-20px, 20px) scale(0.9); }
+    100% { transform: translate(0, 0) scale(1); }
   }
-
   .animate-blob {
-    animation: blob 7s infinite;
+    animation: blob 10s infinite ease-in-out;
   }
-
   .animation-delay-2000 {
     animation-delay: 2s;
   }
-
   .animation-delay-4000 {
     animation-delay: 4s;
   }
 
-  .perspective-1000 {
-    perspective: 1000px;
+  /* -------------------------------------------------
+     🔹 Smooth gradient motion (logo, splash)
+  ------------------------------------------------- */
+  @keyframes gradient-x {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+  .animate-gradient-x {
+    background-size: 200% 200%;
+    animation: gradient-x 4s ease infinite;
   }
 
-  @keyframes phone-entrance {
-    0% {
-      opacity: 0;
-      transform: rotateY(-30deg) translateX(50px);
-    }
-    100% {
-      opacity: 1;
-      transform: rotateY(0deg) translateX(0);
-    }
-  }
-
-  .animate-phone-entrance {
-    animation: phone-entrance 1.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  }
-
+  /* -------------------------------------------------
+     🔹 Fade / Slide / Zoom animations
+  ------------------------------------------------- */
   @keyframes fade-in {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
-
   @keyframes zoom-in {
-    from {
-      opacity: 0;
-      transform: scale(0.9);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
   }
-
   @keyframes slide-in-from-bottom {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   .animate-in {
     animation-fill-mode: both;
   }
-
   .fade-in {
     animation-name: fade-in;
   }
-
   .zoom-in {
     animation-name: zoom-in;
   }
-
   .slide-in-from-bottom {
     animation-name: slide-in-from-bottom;
   }
-
   .duration-500 {
     animation-duration: 500ms;
   }
-
   .duration-700 {
     animation-duration: 700ms;
   }
+  .delay-100 { animation-delay: 100ms; }
+  .delay-200 { animation-delay: 200ms; }
+  .delay-300 { animation-delay: 300ms; }
+  .delay-500 { animation-delay: 500ms; }
 
-  .delay-100 {
-    animation-delay: 100ms;
-  }
-
-  .delay-200 {
-    animation-delay: 200ms;
-  }
-
-  .delay-300 {
-    animation-delay: 300ms;
-  }
-
-  .delay-500 {
-    animation-delay: 500ms;
-  }
-
+  /* -------------------------------------------------
+     🔹 Generic fade + slide effects for modals/cards
+  ------------------------------------------------- */
   @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fadeIn {
+    animation: fadeIn 1s ease forwards;
   }
 
   @keyframes slideUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px) scale(0.98);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
   }
-
-  .animate-fadeIn {
-    animation: fadeIn 0.2s ease-out forwards;
-  }
-
   .animate-slideUp {
     animation: slideUp 0.3s ease-out forwards;
   }
-}
 
-@keyframes gradient-x {
-  0%, 100% {
-    background-position: 0% 50%;
+  /* -------------------------------------------------
+     🔹 Pulse effects for glow / discover header
+  ------------------------------------------------- */
+  @keyframes pulse-slow {
+    0%, 100% {
+      opacity: 1;
+      filter: drop-shadow(0 0 10px rgba(0,191,255,0.4));
+    }
+    50% {
+      opacity: 0.85;
+      filter: drop-shadow(0 0 20px rgba(76,110,245,0.6));
+    }
   }
-  50% {
-    background-position: 100% 50%;
+  .animate-pulse-slow {
+    animation: pulse-slow 4s ease-in-out infinite;
   }
-}
 
-.animate-gradient-x {
-  background-size: 200% 200%;
-  animation: gradient-x 6s ease infinite;
-}
-
-/* 🔹 Smooth glowing blue pulse for Discover header */
-@keyframes pulse-slow {
-  0%, 100% {
-    opacity: 1;
-    filter: drop-shadow(0 0 10px rgba(0,191,255,0.4));
+  /* -------------------------------------------------
+     🔹 3D phone animation (used for future elements)
+  ------------------------------------------------- */
+  .perspective-1000 {
+    perspective: 1000px;
   }
-  50% {
-    opacity: 0.85;
-    filter: drop-shadow(0 0 20px rgba(76,110,245,0.6));
+  @keyframes phone-entrance {
+    0% { opacity: 0; transform: rotateY(-30deg) translateX(50px); }
+    100% { opacity: 1; transform: rotateY(0deg) translateX(0); }
+  }
+  .animate-phone-entrance {
+    animation: phone-entrance 1.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   }
 }
-
-.animate-pulse-slow {
-  animation: pulse-slow 4s ease-in-out infinite;
-}
-
-@keyframes pulse-slow {
-  0%, 100% {
-    opacity: 0.5;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.05);
-  }
-}
-.animate-pulse-slow {
-  animation: pulse-slow 6s ease-in-out infinite;
-}
-
-@keyframes blob {
-  0% {
-    transform: translate(0px, 0px) scale(1);
-  }
-  33% {
-    transform: translate(30px, -30px) scale(1.1);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
-  }
-  100% {
-    transform: translate(0px, 0px) scale(1);
-  }
-}
-.animate-blob {
-  animation: blob 10s infinite ease-in-out;
-}
-
-@keyframes gradient-x {
-  0%, 100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
-.animate-gradient-x {
-  background-size: 200% 200%;
-  animation: gradient-x 4s ease infinite;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-fadeIn {
-  animation: fadeIn 1s ease forwards;
-}
-
