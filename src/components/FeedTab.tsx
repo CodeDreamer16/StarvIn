@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Calendar, MapPin, Award, Bookmark, Send, CalendarPlus, Eye } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Calendar, MapPin, Award, Bookmark, Send, Eye } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { EventModal } from './EventModal';
@@ -8,125 +8,266 @@ interface Event {
   id: string;
   title: string;
   description: string;
-  event_type: string;
-  organization: string;
-  location: string;
-  date: string;
+  event_type: string | null;
+  organization: string | null;
+  location: string | null;
+  date: string;                 // ISO string in DB
   deadline: string | null;
-  image_url: string;
-  prize: string;
-  tags: string[];
-  link?: string;
+  image_url: string | null;
+  prize: string | null;
+  tags: string[] | null;
+  link?: string | null;
 }
 
-interface SavedEvent {
-  event_id: string;
-}
+interface SavedEvent { event_id: string }
+interface Application { event_id: string }
 
-interface Application {
-  event_id: string;
-}
-
+/** 🔎 Interest → keyword map (expandable) */
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  'Wellness & Mental Health': ['wellness', 'mental health', 'therapy', 'yoga', 'stress', 'anxiety', 'support group', 'animal therapy', 'mindfulness', 'meditation', 'walk', 'paws', 'health'],
-  'Career & Professional Development': ['career', 'job', 'linkedin', 'internship', 'resume', 'professional', 'networking', 'employment', 'headshot', 'negotiation', 'industry'],
-  'Workshops & Skill Building': ['workshop', 'skill', 'training', 'tutorial', 'learn', 'apa', 'citation', 'grad breakfast', 'skillsets'],
-  'Social & Community Events': ['social', 'community', 'meetup', 'connect', 'party', 'event', 'gathering', 'contemplative', 'after the party'],
-  'Arts & Creative Activities': ['art', 'creative', 'hive', 'studio', 'crochet', 'craft', 'artistic', 'making'],
-  'Academic Support & Research': ['academic', 'research', 'library', 'phd', 'thesis', 'study', 'graduate', 'masters', 'dissertation'],
-  'International Student Services': ['international', 'immigration', 'iss', 'visa', 'study permit', 'caq', 'legal', 'document'],
-  'Leadership & Personal Growth': ['leadership', 'leader', 'personal growth', 'emerging leaders', 'development', 'mindset', 'imposter syndrome'],
+  'Wellness & Mental Health': [
+    'wellness', 'mental health', 'therapy', 'yoga', 'stress', 'anxiety', 'mindfulness',
+    'student wellness hub', 'health support', 'meditation', 'relaxation', 'self-care',
+    'counseling', 'mental', 'support group', 'mental wellbeing'
+  ],
+  'Career & Professional Development': [
+    'career', 'internship', 'job', 'resume', 'cv', 'networking', 'linkedin',
+    'career planning service', 'career advising', 'career fair', 'employability',
+    'industry', 'professional development', 'interview skills', 'graduate opportunities',
+    'skillsets', 'graduate workshops', 'apa citation', 'apa', 'productivity',
+    'time management', 'academic writing', 'study skills', 'communication skills',
+    'negotiation', 'graduate life', 'professional skills', 'writing workshop',
+    'career services', 'career prep', 'career readiness', 'graduate student',
+    'success strategies'
+  ],
+  'Workshops & Skill Building': [
+    'workshop', 'training', 'skill building', 'tutorial', 'learning', 'skillsets',
+    'graduate workshops', 'academic skills', 'study skills', 'seminar', 'hands-on'
+  ],
+  'Social & Community Events': [
+    'social', 'community', 'meetup', 'event', 'gathering', 'party', 'connect',
+    'student life', 'campus life', 'community event', 'peer network', 'hangout', 'mix and mingle'
+  ],
+  'Arts & Creative Activities': [
+    'art', 'creative', 'craft', 'drawing', 'painting', 'film', 'music', 'photography',
+    'studio', 'gallery', 'design', 'writing', 'artistic', 'performance'
+  ],
+  'Academic Support & Research': [
+    'academic', 'research', 'study', 'writing', 'library', 'thesis', 'citation', 'apa',
+    'study group', 'learning services', 'grad research', 'study tips', 'exam prep'
+  ],
+  'International Student Services': [
+    'international', 'study permit', 'visa', 'iss', 'immigration', 'caq',
+    'global learning', 'international students', 'study abroad', 'intercultural', 'travel', 'exchange'
+  ],
+  'Leadership & Personal Growth': [
+    'leadership', 'leader', 'development', 'growth', 'mindset', 'emerging leaders',
+    'motivation', 'confidence', 'public speaking', 'personal growth', 'imposter syndrome', 'self improvement'
+  ],
 };
+
+/** Helpers */
+const stripHTML = (html?: string | null) =>
+  (html ?? '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const normalize = (s?: string | null) =>
+  (s ?? '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/** Match event to any of the selected interests using keywords and event_type fallback */
+const matchesByInterests = (ev: Event, interests: string[]) => {
+  const text = normalize(
+    `${ev.title} ${stripHTML(ev.description)} ${ev.event_type ?? ''} ${ev.organization ?? ''}`
+  );
+  const typeNorm = normalize(ev.event_type);
+  let matchedInterest: string | null = null;
+
+  for (const interest of interests) {
+    const kwList = CATEGORY_KEYWORDS[interest] ?? [];
+
+    // 1️⃣ Strong match if event_type directly matches interest
+    if (typeNorm && typeNorm.includes(normalize(interest))) {
+      matchedInterest = interest;
+      break;
+    }
+
+    // 2️⃣ Otherwise, try word-level matching (requires exact keyword presence)
+    for (const kw of kwList) {
+      const kwNorm = normalize(kw);
+      const regex = new RegExp(`\\b${kwNorm}\\b`, 'i'); // whole-word match
+      if (regex.test(text)) {
+        matchedInterest = interest;
+        break;
+      }
+    }
+
+    if (matchedInterest) break;
+  }
+
+  // 🧩 Logging for debugging:
+  if (!matchedInterest && interests.length > 0) {
+    console.warn('⚠️ No interest match for:', {
+      event: {
+        title: ev.title,
+        event_type: ev.event_type,
+        organization: ev.organization,
+      },
+      checkedInterests: interests,
+      previewText: text.slice(0, 200) + '...',
+    });
+  }
+
+  return !!matchedInterest;
+};
+
 
 export function FeedTab() {
   const [events, setEvents] = useState<Event[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const eventsPerPage = 10;
+
   const [savedEvents, setSavedEvents] = useState<Set<string>>(new Set());
   const [appliedEvents, setAppliedEvents] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [visibleCards, setVisibleCards] = useState<Set<string>>(new Set());
+
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const { user } = useAuth();
 
+  /** Load feed whenever user changes */
   useEffect(() => {
     loadEventsWithPreferences();
     loadUserData();
+    // reset paging and animation state
+    setCurrentPage(0);
+    setVisibleCards(new Set());
   }, [user]);
 
+  /** Set up fade/slide observer */
   useEffect(() => {
-    // Set up Intersection Observer for fade-in animations
     observerRef.current = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setVisibleCards((prev) => new Set(prev).add(entry.target.id));
+          const id = entry.target.getAttribute('id') ?? '';
+          if (entry.isIntersecting && id) {
+            setVisibleCards((prev) => {
+              const next = new Set(prev);
+              next.add(id);
+              return next;
+            });
           }
         });
       },
-      { threshold: 0.1, rootMargin: '50px' }
+      { threshold: 0.12, rootMargin: '60px' }
     );
-
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
-    };
+    return () => observerRef.current?.disconnect();
   }, []);
 
+  /** Re-observe cards when page/events change (to re-trigger animation each page) */
   useEffect(() => {
-    // Observe all event cards
-    if (observerRef.current) {
-      document.querySelectorAll('[data-event-card]').forEach((card) => {
-        observerRef.current?.observe(card);
-      });
-    }
-  }, [events]);
-
-  const matchesKeywords = (event: Event, interests: string[]): boolean => {
-    const searchText = `${event.title} ${event.description || ''} ${event.event_type || ''} ${event.organization || ''}`.toLowerCase();
-
-    return interests.some(interest => {
-      const keywords = CATEGORY_KEYWORDS[interest] || [];
-      return keywords.some(keyword => searchText.includes(keyword.toLowerCase()));
+    observerRef.current?.disconnect();
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const id = entry.target.getAttribute('id') ?? '';
+          if (entry.isIntersecting && id) {
+            setVisibleCards((prev) => {
+              const next = new Set(prev);
+              next.add(id);
+              return next;
+            });
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: '60px' }
+    );
+    document.querySelectorAll('[data-event-card]').forEach((el) => {
+      observerRef.current?.observe(el);
     });
+  }, [events, currentPage]);
+
+  const scrollToTop = () => {
+    if (containerRef.current) {
+      containerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
+  const handleNextPage = () => {
+    setCurrentPage((p) => {
+      const next = Math.min(totalPages - 1, p + 1);
+      return next;
+    });
+    scrollToTop();
+  };
+
+  const handlePreviousPage = () => {
+    setCurrentPage((p) => {
+      const prev = Math.max(0, p - 1);
+      return prev;
+    });
+    scrollToTop();
+  };
+
+  useEffect(() => {
+    setVisibleCards(new Set());
+  }, [currentPage]);
+
   const loadEventsWithPreferences = async () => {
+    setLoading(true);
     try {
       if (!user) {
+        setEvents([]);
         setLoading(false);
         return;
       }
 
-      const { data: preferences, error: prefError } = await supabase
+      // 1) Get user interests
+      const { data: prefs, error: prefError } = await supabase
         .from('user_preferences')
         .select('interest_name')
         .eq('user_id', user.id);
 
       if (prefError) throw prefError;
 
-      const userInterests = preferences?.map((p) => p.interest_name) || [];
+      const interests = (prefs ?? []).map((p) => p.interest_name).filter(Boolean) as string[];
 
+      // 2) Load events (order ascending by date) & keep only upcoming
       const { data: allEvents, error: eventsError } = await supabase
         .from('events')
-        .select('*, link')
+        .select('*')
         .order('date', { ascending: true });
 
       if (eventsError) throw eventsError;
 
-      if (userInterests.length > 0) {
-        const filteredEvents = (allEvents || []).filter((event) =>
-          matchesKeywords(event, userInterests)
-        );
-        setEvents(filteredEvents);
-      } else {
-        setEvents(allEvents || []);
+      const now = new Date();
+      const upcoming = (allEvents ?? []).filter((e) => {
+        const d = new Date(e.date);
+        return !isNaN(d.getTime()) && d >= now;
+      });
+
+      // 3) If user has no interests, show nothing (or show all—your call). We’ll show nothing for now.
+      if (!interests.length) {
+        setEvents(upcoming);
+        setLoading(false);
+        return;
       }
-    } catch (error) {
-      console.error('Error loading events:', error);
+
+      // 4) Keyword-based filtering
+      const filtered = upcoming.filter((ev) => matchesByInterests(ev, interests));
+
+      setEvents(filtered);
+    } catch (err) {
+      console.error('Error loading events:', err);
       setEvents([]);
     } finally {
       setLoading(false);
@@ -135,274 +276,221 @@ export function FeedTab() {
 
   const loadUserData = async () => {
     if (!user) return;
-
     try {
       const [savedResponse, appliedResponse] = await Promise.all([
         supabase.from('saved_events').select('event_id').eq('user_id', user.id),
         supabase.from('applications').select('event_id').eq('user_id', user.id),
       ]);
-
       if (savedResponse.data) {
         setSavedEvents(new Set(savedResponse.data.map((s: SavedEvent) => s.event_id)));
       }
-
       if (appliedResponse.data) {
         setAppliedEvents(new Set(appliedResponse.data.map((a: Application) => a.event_id)));
       }
-    } catch (error) {
-      console.error('Error loading user data:', error);
+    } catch (e) {
+      console.error('Error loading user data:', e);
     }
   };
 
   const handleSave = async (eventId: string) => {
     if (!user) return;
-
     try {
       if (savedEvents.has(eventId)) {
-        await supabase
-          .from('saved_events')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('event_id', eventId);
-
+        await supabase.from('saved_events').delete().eq('user_id', user.id).eq('event_id', eventId);
         setSavedEvents((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(eventId);
-          return newSet;
+          const next = new Set(prev);
+          next.delete(eventId);
+          return next;
         });
       } else {
-        await supabase.from('saved_events').insert({
-          user_id: user.id,
-          event_id: eventId,
-        });
-
+        await supabase.from('saved_events').insert({ user_id: user.id, event_id: eventId });
         setSavedEvents((prev) => new Set(prev).add(eventId));
       }
-    } catch (error) {
-      console.error('Error saving event:', error);
+    } catch (e) {
+      console.error('Error saving event:', e);
     }
   };
 
   const addToGoogleCalendar = (event: Event) => {
-    // Placeholder function for Google Calendar integration
-    // Will be connected to actual Google Calendar API later
-    const eventDate = new Date(event.date);
-    const endDate = new Date(eventDate.getTime() + 2 * 60 * 60 * 1000); // Add 2 hours
-
-    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
+    const start = new Date(event.date);
+    const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+    const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
       event.title
-    )}&dates=${eventDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z/${endDate
-      .toISOString()
-      .replace(/[-:]/g, '')
-      .split('.')[0]}Z&details=${encodeURIComponent(
-      event.description
-    )}&location=${encodeURIComponent(event.location)}`;
-
-    window.open(calendarUrl, '_blank');
+    )}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(
+      stripHTML(event.description)
+    )}&location=${encodeURIComponent(event.location ?? '')}`;
+    window.open(url, '_blank');
   };
 
   const handleApply = async (eventId: string, event: Event) => {
     if (!user || appliedEvents.has(eventId)) return;
-
     try {
-      await supabase.from('applications').insert({
-        user_id: user.id,
-        event_id: eventId,
-        status: 'applied',
-      });
-
+      await supabase.from('applications').insert({ user_id: user.id, event_id: eventId, status: 'applied' });
       setAppliedEvents((prev) => new Set(prev).add(eventId));
-
-      // Also add to calendar when applying
       addToGoogleCalendar(event);
-    } catch (error) {
-      console.error('Error applying to event:', error);
+    } catch (e) {
+      console.error('Error applying to event:', e);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-  const openModal = (event: Event) => {
-    setSelectedEvent(event);
-    setIsModalOpen(true);
-  };
+  const openModal = (ev: Event) => { setSelectedEvent(ev); setIsModalOpen(true); };
+  const closeModal = () => { setIsModalOpen(false); setTimeout(() => setSelectedEvent(null), 250); };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setTimeout(() => setSelectedEvent(null), 300);
-  };
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(events.length / eventsPerPage)),
+    [events.length]
+  );
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-white">Loading events...</div>
-      </div>
-    );
-  }
+  const pageSlice = useMemo(() => {
+    const start = currentPage * eventsPerPage;
+    return events.slice(start, start + eventsPerPage);
+  }, [events, currentPage]);
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto pb-24">
+      <div ref={containerRef} className="flex-1 overflow-y-auto pb-24">
         <div className="px-4 pt-6 pb-4">
           <h1 className="text-3xl font-bold text-white mb-1">Discover</h1>
           <p className="text-gray-400">Find events that match your interests</p>
         </div>
 
-      {events.length === 0 && !loading ? (
-        <div className="flex flex-col items-center justify-center h-64 px-8">
-          <p className="text-gray-400 text-center mb-4">
-            No upcoming events match your interests right now.
-          </p>
-          <p className="text-gray-500 text-sm text-center">
-            Try updating your preferences to discover more events!
-          </p>
-        </div>
-      ) : (
-        <div className="px-4 space-y-4 pb-4">
-          {events.slice(currentPage * eventsPerPage, (currentPage + 1) * eventsPerPage).map((event, index) => {
-          const isSaved = savedEvents.has(event.id);
-          const isApplied = appliedEvents.has(event.id);
-          const isVisible = visibleCards.has(`event-${event.id}`);
+        {loading ? (
+          <div className="flex items-center justify-center h-48 text-white">Loading events...</div>
+        ) : events.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 px-8">
+            <p className="text-gray-400 text-center mb-2">No upcoming events match your interests right now.</p>
+            <p className="text-gray-500 text-sm text-center">Try updating your preferences to discover more events!</p>
+          </div>
+        ) : (
+          <div className="px-4 space-y-4 pb-4">
+            {pageSlice.map((event, idx) => {
+              const isSaved = savedEvents.has(event.id);
+              const isApplied = appliedEvents.has(event.id);
+              const cardId = `event-${event.id}`;
+              const visible = visibleCards.has(cardId);
 
-          return (
-            <div
-              key={event.id}
-              id={`event-${event.id}`}
-              data-event-card
-              className={`bg-[#1a1d29] rounded-3xl overflow-hidden border border-gray-800 hover:border-gray-700 transition-all duration-500 ${
-                isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-              }`}
-              style={{ transitionDelay: `${index * 50}ms` }}
-            >
-              <div
-                className="h-48 bg-cover bg-center relative"
-                style={{
-                  backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.6)), url(${event.image_url})`,
-                }}
-              >
-                <div className="absolute top-4 left-4">
-                  <span className="bg-[#4C6EF5] text-white px-3 py-1 rounded-full text-xs font-semibold">
-                    {event.event_type}
-                  </span>
-                </div>
-                <button
-                  onClick={() => handleSave(event.id)}
-                  className="absolute top-4 right-4 bg-black/50 backdrop-blur-sm p-2 rounded-full hover:bg-black/70 transition-colors"
+              return (
+                <div
+                  key={event.id}
+                  id={cardId}
+                  data-event-card
+                  className={`bg-[#1a1d29] rounded-3xl overflow-hidden border border-gray-800 hover:border-gray-700 transition-all duration-500
+                    ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+                  style={{ transitionDelay: `${idx * 35}ms` }}
                 >
-                  <Bookmark
-                    className={`w-5 h-5 ${isSaved ? 'fill-[#4C6EF5] text-[#4C6EF5]' : 'text-white'}`}
-                  />
-                </button>
-              </div>
-
-              <div className="p-5 space-y-3">
-                <div>
-                  <h3 className="text-xl font-bold text-white mb-1">{event.title}</h3>
-                  <p className="text-gray-400 text-sm">{event.organization}</p>
-                </div>
-
-                <p className="text-gray-300 text-sm line-clamp-2">{event.description}</p>
-
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-gray-400 text-sm">
-                    <Calendar className="w-4 h-4" />
-                    <span>{formatDate(event.date)}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-400 text-sm">
-                    <MapPin className="w-4 h-4" />
-                    <span>{event.location}</span>
-                  </div>
-                  {event.prize && (
-                    <div className="flex items-center gap-2 text-[#4C6EF5] text-sm font-medium">
-                      <Award className="w-4 h-4" />
-                      <span>{event.prize}</span>
-                    </div>
-                  )}
-                </div>
-
-                {event.tags && event.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {event.tags.slice(0, 3).map((tag, idx) => (
-                      <span
-                        key={idx}
-                        className="bg-gray-800 text-gray-300 px-3 py-1 rounded-full text-xs"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <button
-                    onClick={() => openModal(event)}
-                    className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white hover:opacity-90 transition-opacity"
+                  <div
+                    className="h-48 bg-cover bg-center relative"
+                    style={{
+                      backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.6)), url(${event.image_url ?? ''})`,
+                    }}
                   >
-                    <Eye className="w-4 h-4" />
-                    View Details
-                  </button>
-                  <div className="flex gap-2">
+                    {event.event_type && (
+                      <div className="absolute top-4 left-4">
+                        <span className="bg-[#4C6EF5] text-white px-3 py-1 rounded-full text-xs font-semibold">
+                          {event.event_type}
+                        </span>
+                      </div>
+                    )}
                     <button
-                      onClick={() => addToGoogleCalendar(event)}
-                      className="flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 bg-[#0B0C10] text-white border border-gray-700 hover:border-gray-600 transition-colors"
+                      onClick={() => handleSave(event.id)}
+                      className="absolute top-4 right-4 bg-black/50 backdrop-blur-sm p-2 rounded-full hover:bg-black/70 transition-colors"
                     >
-                      <CalendarPlus className="w-4 h-4" />
-                      Add to Calendar
-                    </button>
-                    <button
-                      onClick={() => handleApply(event.id, event)}
-                      disabled={isApplied}
-                      className={`flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
-                        isApplied
-                          ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                          : 'bg-[#0B0C10] text-white border border-gray-700 hover:border-gray-600'
-                      }`}
-                    >
-                      {isApplied ? (
-                        'Applied'
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4" />
-                          Apply
-                        </>
-                      )}
+                      <Bookmark className={`w-5 h-5 ${isSaved ? 'fill-[#4C6EF5] text-[#4C6EF5]' : 'text-white'}`} />
                     </button>
                   </div>
-                </div>
-              </div>
-            </div>
-          );
-          })}
 
-          {events.length > eventsPerPage && (
-            <div className="flex justify-center gap-3 pt-4 pb-2">
-              {currentPage > 0 && (
-                <button
-                  onClick={() => setCurrentPage(prev => prev - 1)}
-                  className="bg-[#1a1d29] text-white font-semibold px-6 py-3 rounded-xl hover:bg-[#252837] transition-colors border border-gray-700"
-                >
-                  Previous
-                </button>
-              )}
-              {(currentPage + 1) * eventsPerPage < events.length && (
-                <button
-                  onClick={() => setCurrentPage(prev => prev + 1)}
-                  className="bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white font-semibold px-8 py-3 rounded-xl hover:opacity-90 transition-opacity"
-                >
-                  Load More
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+                  <div className="p-5 space-y-3">
+                    <div>
+                      <h3 className="text-xl font-bold text-white mb-1">{event.title}</h3>
+                      {event.organization && <p className="text-gray-400 text-sm">{event.organization}</p>}
+                    </div>
+
+                    <p className="text-gray-300 text-sm line-clamp-2">{stripHTML(event.description)}</p>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-gray-400 text-sm">
+                        <Calendar className="w-4 h-4" />
+                        <span>{formatDate(event.date)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-gray-400 text-sm">
+                        <MapPin className="w-4 h-4" />
+                        <span>{event.location ?? 'McGill University'}</span>
+                      </div>
+                      {event.prize && (
+                        <div className="flex items-center gap-2 text-[#4C6EF5] text-sm font-medium">
+                          <Award className="w-4 h-4" />
+                          <span>{event.prize}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {event.tags?.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {event.tags.slice(0, 3).map((tag, idx) => (
+                          <span key={idx} className="bg-gray-800 text-gray-300 px-3 py-1 rounded-full text-xs">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => openModal(event)}
+                        className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white hover:opacity-90 transition-opacity"
+                      >
+                        <Eye className="w-4 h-4" />
+                        View Details
+                      </button>
+
+                      <div className="flex gap-2">
+                        {/* You said Add to Calendar is redundant; keep Apply only if you prefer */}
+                        <button
+                          onClick={() => handleApply(event.id, event)}
+                          disabled={isApplied}
+                          className={`flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
+                            isApplied
+                              ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                              : 'bg-[#0B0C10] text-white border border-gray-700 hover:border-gray-600'
+                          }`}
+                        >
+                          {isApplied ? 'Applied' : (<><Send className="w-4 h-4" />Apply</>)}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Pagination */}
+            {events.length > eventsPerPage && (
+              <div className="flex items-center justify-center gap-3 pt-4 pb-2">
+                <p className="text-gray-400 text-sm">Page {currentPage + 1} of {totalPages}</p>
+                {currentPage > 0 && (
+                  <button
+                    onClick={handlePreviousPage}
+                    className="bg-[#1a1d29] text-white font-semibold px-6 py-3 rounded-xl hover:bg-[#252837] transition-colors border border-gray-700"
+                  >
+                    Previous
+                  </button>
+                )}
+                {currentPage + 1 < totalPages && (
+                  <button
+                    onClick={handleNextPage}
+                    className="bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white font-semibold px-8 py-3 rounded-xl hover:opacity-90 transition-opacity"
+                  >
+                    Next Page
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <EventModal event={selectedEvent} isOpen={isModalOpen} onClose={closeModal} />
