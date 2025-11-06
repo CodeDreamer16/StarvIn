@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -6,47 +6,61 @@ interface SplashScreenProps {
 }
 
 export function SplashScreen({ onComplete, checkingAuth = false }: SplashScreenProps) {
-  const [fadeIn, setFadeIn] = useState(false);
-  const [fadeOut, setFadeOut] = useState(false);
+  const [phase, setPhase] = useState<"hidden" | "fadeIn" | "visible" | "fadeOut">("hidden");
 
   useEffect(() => {
-    const fadeInTimer = setTimeout(() => {
-      setFadeIn(true);
-    }, 100);
+    // Begin fade in
+    const t1 = setTimeout(() => setPhase("fadeIn"), 100);
+    // Fully visible
+    const t2 = setTimeout(() => setPhase("visible"), 600);
 
     if (!checkingAuth) {
-      const fadeOutTimer = setTimeout(() => {
-        setFadeOut(true);
-      }, 2000);
-
-      const completeTimer = setTimeout(() => {
-        onComplete();
-      }, 3000);
-
-      return () => {
-        clearTimeout(fadeInTimer);
-        clearTimeout(fadeOutTimer);
-        clearTimeout(completeTimer);
-      };
+      // Fade out faster for clean transition
+      const t3 = setTimeout(() => setPhase("fadeOut"), 1900);
+      const t4 = setTimeout(() => onComplete(), 2600);
+      return () => [t1, t2, t3, t4].forEach(clearTimeout);
     }
 
-    return () => {
-      clearTimeout(fadeInTimer);
-    };
+    return () => [t1, t2].forEach(clearTimeout);
   }, [onComplete, checkingAuth]);
 
   return (
     <div
-      className={`fixed inset-0 bg-gradient-to-br from-[#0B0C10] via-[#1a1d29] to-[#0B0C10] flex items-center justify-center z-50 transition-opacity duration-1000 ${
-        fadeOut ? 'opacity-0' : fadeIn ? 'opacity-100' : 'opacity-0'
-      }`}
+      className={`fixed inset-0 flex items-center justify-center z-50 transition-all duration-700 ease-[cubic-bezier(0.4,0,0.2,1)] 
+        bg-gradient-to-br from-[#0B0C10] via-[#11131c] to-[#0B0C10]
+        ${
+          phase === "fadeIn"
+            ? "opacity-100 scale-100"
+            : phase === "visible"
+            ? "opacity-100 scale-100"
+            : phase === "fadeOut"
+            ? "opacity-0 scale-105"
+            : "opacity-0 scale-95"
+        }`}
     >
-      <div className="text-center space-y-6">
-        <div className="text-6xl font-bold animate-pulse">
+      {/* Soft animated glow in background */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute w-[500px] h-[500px] rounded-full bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] opacity-10 blur-[120px] animate-pulse-slow" />
+        <div className="absolute bottom-10 right-10 w-[400px] h-[400px] rounded-full bg-gradient-to-r from-[#4C6EF5] to-[#00BFFF] opacity-10 blur-[100px] animate-pulse-slow animation-delay-2000" />
+      </div>
+
+      {/* Logo text */}
+      <div
+        className={`text-center space-y-4 transform transition-all duration-700 ${
+          phase === "fadeIn" || phase === "visible"
+            ? "translate-y-0 opacity-100"
+            : "translate-y-3 opacity-0"
+        }`}
+      >
+        <h1 className="text-6xl font-extrabold tracking-tight">
           <span className="text-white">vyb</span>
-          <span className="text-[#00BFFF]">in</span>
-        </div>
-        <p className="text-gray-400 text-lg">Discover. Connect. Vybe.</p>
+          <span className="text-[#00BFFF] animate-gradient-x bg-clip-text text-transparent bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5]">
+            in
+          </span>
+        </h1>
+        <p className="text-gray-400 text-lg font-medium animate-fadeIn">
+          Discover. Connect. Vybe.
+        </p>
       </div>
     </div>
   );
