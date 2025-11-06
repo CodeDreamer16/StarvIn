@@ -28,56 +28,22 @@ interface Application {
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   "Career & Professional Development": [
-    "career",
-    "job",
-    "internship",
-    "resume",
-    "linkedin",
-    "network",
-    "employer",
-    "career planning",
+    "career", "job", "internship", "resume", "linkedin", "network", "employer", "career planning",
   ],
   "Wellness & Mental Health": [
-    "wellness",
-    "mental",
-    "therapy",
-    "stress",
-    "health",
-    "mindfulness",
-    "support",
-    "care",
+    "wellness", "mental", "therapy", "stress", "health", "mindfulness", "support", "care",
   ],
   "Workshops & Skill Building": [
-    "workshop",
-    "training",
-    "learn",
-    "skillsets",
-    "tutorial",
-    "seminar",
-    "session",
+    "workshop", "training", "learn", "skillsets", "tutorial", "seminar", "session",
   ],
   "Social & Community Events": [
-    "social",
-    "community",
-    "mixer",
-    "connect",
-    "meetup",
-    "hangout",
+    "social", "community", "mixer", "connect", "meetup", "hangout",
   ],
   "International Student Services": [
-    "international",
-    "immigration",
-    "iss",
-    "visa",
-    "global",
-    "orientation",
+    "international", "immigration", "iss", "visa", "global", "orientation",
   ],
   "Leadership & Personal Growth": [
-    "leadership",
-    "mindset",
-    "growth",
-    "development",
-    "imposter",
+    "leadership", "mindset", "growth", "development", "imposter",
   ],
 };
 
@@ -89,9 +55,7 @@ const normalize = (s?: string | null) =>
 
 function relevanceScore(ev: Event, interests: string[]) {
   const text = normalize(
-    `${ev.title} ${stripHTML(ev.description)} ${ev.event_type ?? ""} ${
-      ev.organization ?? ""
-    }`
+    `${ev.title} ${stripHTML(ev.description)} ${ev.event_type ?? ""} ${ev.organization ?? ""}`
   );
   let score = 0;
   for (const interest of interests) {
@@ -124,7 +88,6 @@ export function FeedTab() {
     loadUserData();
   }, [user]);
 
-  // 🔹 Smooth fade + slower transition when switching pages
   const handlePageChange = (newPage: number) => {
     setFadeState("fade-out");
     setTimeout(() => {
@@ -132,7 +95,7 @@ export function FeedTab() {
       if (scrollRef.current) scrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
       setVisibleCards(new Set());
       setFadeState("fade-in");
-    }, 500); // slower fade transition (was 250)
+    }, 500);
   };
 
   useEffect(() => {
@@ -183,9 +146,7 @@ export function FeedTab() {
       const filtered = interests.length
         ? upcoming.filter((ev) => {
             const text = normalize(
-              `${ev.title} ${stripHTML(ev.description)} ${ev.event_type ?? ""} ${
-                ev.organization ?? ""
-              }`
+              `${ev.title} ${stripHTML(ev.description)} ${ev.event_type ?? ""} ${ev.organization ?? ""}`
             );
             return interests.some((i) => {
               const kws = CATEGORY_KEYWORDS[i] ?? [];
@@ -271,7 +232,7 @@ export function FeedTab() {
           </div>
 
           <div className="relative z-10 text-center">
-            <h1 className="text-5xl font-extrabold bg-gradient-to-r from-[#00BFFF] via-[#4C6EF5] to-[#00BFFF] bg-clip-text text-transparent animate-gradient-x mb-3">
+            <h1 className="text-5xl font-extrabold bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] bg-clip-text text-transparent animate-pulse-slow drop-shadow-[0_0_20px_rgba(0,191,255,0.4)] mb-3 hover:drop-shadow-[0_0_30px_rgba(0,191,255,0.8)] transition-all duration-500">
               Discover
             </h1>
             <p className="text-gray-400 text-lg animate-fadeIn delay-200">
@@ -315,7 +276,7 @@ export function FeedTab() {
                     hover:border-[#00BFFF]/50
                     ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
                   style={{
-                    transitionDelay: `${idx * 60}ms`, // slightly slower stagger
+                    transitionDelay: `${idx * 60}ms`,
                     backgroundImage: bg,
                     backgroundSize: ev.image_url ? "cover" : "auto",
                     backgroundPosition: "center",
