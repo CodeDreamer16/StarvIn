@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
-import { Calendar, MapPin, Eye, CheckCircle2 } from 'lucide-react';
-import { EventModal } from './EventModal';
+import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
+import { Calendar, MapPin, Eye, CheckCircle2 } from "lucide-react";
+import { EventModal } from "./EventModal";
 
 interface EventApplication {
   id: string;
@@ -27,10 +27,10 @@ export function ApplicationsTab() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
+    new Date(iso).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
 
   const fetchApplications = async () => {
@@ -38,7 +38,7 @@ export function ApplicationsTab() {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('applications')
+        .from("applications")
         .select(
           `
           id,
@@ -55,13 +55,13 @@ export function ApplicationsTab() {
           )
         `
         )
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setApplications(data || []);
     } catch (err) {
-      console.error('Error fetching applications:', err);
+      console.error("Error fetching applications:", err);
     } finally {
       setLoading(false);
     }
@@ -81,95 +81,6 @@ export function ApplicationsTab() {
     setTimeout(() => setSelectedEvent(null), 250);
   };
 
-  if (loading) {
+  if (loading)
     return (
-      <div className="flex items-center justify-center h-64 text-white">
-        Loading applications...
-      </div>
-    );
-  }
-
-  if (!applications.length) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 text-center text-gray-400">
-        <CheckCircle2 className="w-10 h-10 mb-3 text-gray-500" />
-        <p className="font-medium text-gray-300">No applications yet</p>
-        <p className="text-sm text-gray-500">Apply to events to see them here.</p>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <div className="px-4 pt-6 pb-24 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {applications.map((app) => {
-          const event = app.events;
-          return (
-            <div
-              key={app.id}
-              className="bg-gradient-to-br from-[#1a1d29] to-[#1f1c2c] border border-gray-800 rounded-2xl overflow-hidden hover:shadow-[0_0_12px_2px_rgba(124,58,237,0.4)] transition-all duration-300"
-            >
-              {event?.image_url && (
-                <div
-                  className="h-36 bg-cover bg-center"
-                  style={{
-                    backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.6)), url(${event.image_url})`,
-                  }}
-                />
-              )}
-
-              <div className="p-5 space-y-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-lg font-bold text-white mb-1">
-                      {event?.title}
-                    </h3>
-                    {event?.organization && (
-                      <p className="text-gray-400 text-sm">{event.organization}</p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col items-end text-sm font-medium text-green-400">
-                    <div className="flex items-center gap-1">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Applied</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-gray-400 text-xs mt-1">
-                      <Calendar className="w-3 h-3" />
-                      <span>{formatDate(app.created_at)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <p className="text-gray-300 text-sm line-clamp-2">
-                  {event?.description?.replace(/<[^>]*>/g, '')}
-                </p>
-
-                <div className="flex items-center gap-3 text-gray-400 text-sm">
-                  <Calendar className="w-4 h-4" />
-                  <span>{formatDate(event?.date)}</span>
-                  <MapPin className="w-4 h-4 ml-2" />
-                  <span>{event?.location ?? 'McGill University'}</span>
-                </div>
-
-                <button
-                  onClick={() => openModal(event)}
-                  className="w-full py-2 rounded-xl font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white hover:opacity-90 transition-opacity"
-                >
-                  <Eye className="w-4 h-4" />
-                  View Details
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <EventModal
-        event={selectedEvent}
-        isOpen={isModalOpen}
-        onClose={closeModal}
-      />
-    </>
-  );
-}
+      <div className="flex items-center justify
