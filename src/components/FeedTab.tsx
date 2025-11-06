@@ -163,12 +163,38 @@ export function FeedTab() {
 
   const handleSave = async (id: string) => {
     if (!user) return;
-    if (savedEvents.has(id)) {
-      await supabase.from('saved_events').delete().eq('user_id', user.id).eq('event_id', id);
-      setSavedEvents((p) => { const n = new Set(p); n.delete(id); return n; });
-    } else {
-      await supabase.from('saved_events').insert({ user_id: user.id, event_id: id });
-      setSavedEvents((p) => new Set(p).add(id));
+    try {
+      if (savedEvents.has(id)) {
+        const { error } = await supabase
+          .from('saved_events')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('event_id', id);
+
+        if (error) {
+          console.error('Error removing saved event:', error);
+          return;
+        }
+
+        setSavedEvents((p) => {
+          const n = new Set(p);
+          n.delete(id);
+          return n;
+        });
+      } else {
+        const { error } = await supabase
+          .from('saved_events')
+          .insert({ user_id: user.id, event_id: id });
+
+        if (error) {
+          console.error('Error saving event:', error);
+          return;
+        }
+
+        setSavedEvents((p) => new Set(p).add(id));
+      }
+    } catch (err) {
+      console.error('Error in handleSave:', err);
     }
   };
 
