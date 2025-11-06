@@ -1,7 +1,10 @@
 import { useEffect, useState, useRef } from "react";
-import { Camera, Bell, Settings, LogOut, User, Upload } from "lucide-react";
+import { Camera, Bell, Settings, LogOut, User, Upload, Trash2, CheckCircle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+
+const DEFAULT_AVATAR =
+  "https://res.cloudinary.com/dt4dmpliy/image/upload/v1730939823/default_profile_grad_znuhqi.png"; // replace with your uploaded icon URL
 
 interface ProfileTabProps {
   onEditPreferences: () => void;
@@ -14,6 +17,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
   const settingsRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -67,7 +71,6 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
           upsert: true,
           contentType: file.type,
         });
-
       if (uploadError) throw uploadError;
 
       const {
@@ -78,16 +81,31 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         .from("profiles")
         .update({ avatar_url: publicUrl })
         .eq("id", user.id);
-
       if (updateError) throw updateError;
 
       setProfile((p: any) => ({ ...p, avatar_url: publicUrl }));
-      alert("Profile photo updated ✅");
+      setUploadSuccess(true);
+      setTimeout(() => setUploadSuccess(false), 1500);
     } catch (err) {
       console.error(err);
       alert("Upload failed. Please try again.");
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ avatar_url: null })
+        .eq("id", user.id);
+      if (error) throw error;
+      setProfile((p: any) => ({ ...p, avatar_url: null }));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to remove photo.");
     }
   };
 
@@ -108,7 +126,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
 
   return (
     <div className="flex-1 overflow-y-auto bg-[#0B0C10] text-white pb-24">
-      {/* 🖼️ Banner section */}
+      {/* 🖼️ Banner */}
       <div className="relative h-44 bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5]">
         {profile?.banner_url && (
           <img
@@ -131,16 +149,6 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
           {showSettings && (
             <div className="absolute right-0 mt-3 w-48 bg-[#1a1d29] border border-white/10 rounded-xl shadow-lg overflow-hidden animate-fadeIn z-50">
               <button
-                onClick={() => {
-                  setShowSettings(false);
-                  alert("Profile editing coming soon!");
-                }}
-                className="w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-white/10 transition"
-              >
-                <User className="w-4 h-4 text-[#00BFFF]" />
-                Edit Profile
-              </button>
-              <button
                 onClick={handleSignOut}
                 disabled={signingOut}
                 className="w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-red-500/10 text-red-400 transition disabled:opacity-50"
@@ -153,13 +161,13 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         </div>
       </div>
 
-      {/* 👤 Profile photo */}
+      {/* 👤 Profile Photo */}
       <div className="relative -mt-16 flex flex-col items-center">
         <div className="relative group">
           <img
-            src={profile?.avatar_url || "https://via.placeholder.com/100"}
+            src={profile?.avatar_url || DEFAULT_AVATAR}
             alt="Profile"
-            className="w-28 h-28 rounded-full border-4 border-[#0B0C10] object-cover shadow-lg"
+            className="w-28 h-28 rounded-full border-4 border-[#0B0C10] object-cover shadow-lg transition-all duration-300"
           />
           <button
             onClick={() => fileInputRef.current?.click()}
@@ -172,6 +180,14 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
               <Camera className="w-4 h-4 text-white" />
             )}
           </button>
+
+          {/* ✅ Smooth success overlay */}
+          {uploadSuccess && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full animate-fadeIn">
+              <CheckCircle className="w-8 h-8 text-[#00FFAA]" />
+            </div>
+          )}
+
           <input
             ref={fileInputRef}
             type="file"
@@ -181,7 +197,16 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
           />
         </div>
 
-        {/* 👇 Display full name or email */}
+        {/* 🗑️ Remove photo button */}
+        {profile?.avatar_url && (
+          <button
+            onClick={handleRemoveAvatar}
+            className="mt-2 flex items-center gap-1 text-sm text-gray-400 hover:text-red-400 transition"
+          >
+            <Trash2 className="w-4 h-4" /> Remove photo
+          </button>
+        )}
+
         <h2 className="mt-3 text-2xl font-semibold">
           {profile?.full_name || user?.email?.split("@")[0] || "User"}
         </h2>
@@ -190,7 +215,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         </p>
       </div>
 
-      {/* Edit Preferences */}
+      {/* ⚙️ Edit Preferences */}
       <div className="flex flex-col items-center gap-3 mt-4">
         <button
           onClick={onEditPreferences}
@@ -201,7 +226,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         </button>
       </div>
 
-      {/* 🔔 Notifications only */}
+      {/* 🔔 Notifications */}
       <div className="mt-8 flex justify-center gap-10 border-b border-white/10">
         <button className="pb-3 text-sm font-medium text-[#00BFFF] border-b-2 border-[#00BFFF]">
           <Bell className="inline w-4 h-4 mr-1" /> Notifications
