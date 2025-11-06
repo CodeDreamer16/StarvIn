@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -7,22 +7,40 @@ interface SplashScreenProps {
 
 export function SplashScreen({ onComplete, checkingAuth = false }: SplashScreenProps) {
   const [phase, setPhase] = useState<"hidden" | "fadeIn" | "visible" | "fadeOut">("hidden");
+  const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
+  const glowRef = useRef<HTMLDivElement>(null);
 
+  // Fade timing logic
   useEffect(() => {
-    // Begin fade in
     const t1 = setTimeout(() => setPhase("fadeIn"), 100);
-    // Fully visible
     const t2 = setTimeout(() => setPhase("visible"), 600);
 
     if (!checkingAuth) {
-      // Fade out faster for clean transition
-      const t3 = setTimeout(() => setPhase("fadeOut"), 1900);
-      const t4 = setTimeout(() => onComplete(), 2600);
+      const t3 = setTimeout(() => setPhase("fadeOut"), 2100);
+      const t4 = setTimeout(() => onComplete(), 2800);
       return () => [t1, t2, t3, t4].forEach(clearTimeout);
     }
 
     return () => [t1, t2].forEach(clearTimeout);
   }, [onComplete, checkingAuth]);
+
+  // Track mouse movement to move background glow
+  useEffect(() => {
+    const handleMove = (e: MouseEvent) => {
+      const x = (e.clientX / window.innerWidth) * 100;
+      const y = (e.clientY / window.innerHeight) * 100;
+      setMousePos({ x, y });
+    };
+    window.addEventListener("mousemove", handleMove);
+    return () => window.removeEventListener("mousemove", handleMove);
+  }, []);
+
+  // Update background glow position
+  useEffect(() => {
+    if (glowRef.current) {
+      glowRef.current.style.background = `radial-gradient(circle at ${mousePos.x}% ${mousePos.y}%, rgba(0,191,255,0.15), transparent 60%)`;
+    }
+  }, [mousePos]);
 
   return (
     <div
@@ -38,13 +56,19 @@ export function SplashScreen({ onComplete, checkingAuth = false }: SplashScreenP
             : "opacity-0 scale-95"
         }`}
     >
-      {/* Soft animated glow in background */}
+      {/* Background glow that follows mouse */}
+      <div
+        ref={glowRef}
+        className="absolute inset-0 transition-all duration-700 ease-in-out pointer-events-none"
+      />
+
+      {/* Idle animated blobs */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute w-[500px] h-[500px] rounded-full bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] opacity-10 blur-[120px] animate-pulse-slow" />
-        <div className="absolute bottom-10 right-10 w-[400px] h-[400px] rounded-full bg-gradient-to-r from-[#4C6EF5] to-[#00BFFF] opacity-10 blur-[100px] animate-pulse-slow animation-delay-2000" />
+        <div className="absolute w-[500px] h-[500px] rounded-full bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] opacity-10 blur-[120px] animate-blob" />
+        <div className="absolute bottom-10 right-10 w-[400px] h-[400px] rounded-full bg-gradient-to-r from-[#4C6EF5] to-[#00BFFF] opacity-10 blur-[100px] animate-blob animation-delay-2000" />
       </div>
 
-      {/* Logo text */}
+      {/* Center content */}
       <div
         className={`text-center space-y-4 transform transition-all duration-700 ${
           phase === "fadeIn" || phase === "visible"
@@ -52,15 +76,15 @@ export function SplashScreen({ onComplete, checkingAuth = false }: SplashScreenP
             : "translate-y-3 opacity-0"
         }`}
       >
-        <h1 className="text-6xl font-extrabold tracking-tight">
+        <h1
+          className="text-6xl font-extrabold tracking-tight group relative inline-block cursor-default transition-all duration-700"
+        >
           <span className="text-white">vyb</span>
-          <span className="text-[#00BFFF] animate-gradient-x bg-clip-text text-transparent bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5]">
+          <span className="text-[#00BFFF] bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] bg-clip-text text-transparent animate-gradient-x group-hover:brightness-125 group-hover:drop-shadow-[0_0_25px_rgba(0,191,255,0.6)] transition-all duration-700">
             in
           </span>
         </h1>
-        <p className="text-gray-400 text-lg font-medium animate-fadeIn">
-          Discover. Connect. Vybe.
-        </p>
+        <p className="text-gray-400 text-lg font-medium animate-fadeIn">Discover. Connect. Vybe.</p>
       </div>
     </div>
   );
