@@ -378,6 +378,31 @@ export function FeedTab() {
             })}
           </div>
         )}
+
+        {/* ✅ Fixed Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-3 pb-6">
+            {currentPage > 0 && (
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                className="bg-white/5 text-white px-5 py-3 rounded-xl hover:bg-white/10 transition"
+              >
+                Previous
+              </button>
+            )}
+            <p className="text-gray-400 text-sm">
+              Page {currentPage + 1} of {totalPages}
+            </p>
+            {currentPage + 1 < totalPages && (
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                className="bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] text-white px-6 py-3 rounded-xl hover:opacity-90 transition"
+              >
+                Next
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <EventModal event={selectedEvent} isOpen={isModalOpen} onClose={closeModal} />
