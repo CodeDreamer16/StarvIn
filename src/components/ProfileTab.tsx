@@ -75,7 +75,14 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
           </div>
           <div className="flex items-center gap-2">
             <Instagram className="w-4 h-4 text-[#A78BFA]" />
-            <span className="text-gray-300">@vybin</span>
+            <a
+              href="https://www.instagram.com/wearevybin"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-300 hover:text-white transition"
+            >
+              @wearevybin
+            </a>
           </div>
         </div>
 
