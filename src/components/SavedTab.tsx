@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Calendar, MapPin, Eye, Bookmark } from 'lucide-react';
+import { Calendar, MapPin, Eye, Bookmark, Trash2 } from 'lucide-react';
 import { EventModal } from './EventModal';
 
 interface Event {
@@ -35,40 +35,90 @@ export function SavedTab() {
       year: 'numeric',
     });
 
-  // ✅ Updated function: works even if Supabase relationship isn't recognized yet
+  // ✅ fetchSavedEvents now auto-falls back if Supabase join fails
   const fetchSavedEvents = async () => {
     if (!user) return;
     setLoading(true);
     try {
-      // Step 1: get the saved event IDs for the user
-      const { data: saved, error: savedErr } = await supabase
+      console.log("Fetching saved events for user:", user.id);
+
+      // --- Try direct join first ---
+      const { data: joinedData, error: joinedError } = await supabase
         .from('saved_events')
-        .select('event_id')
+        .select(`
+          event_id,
+          events (
+            id,
+            title,
+            description,
+            event_type,
+            organization,
+            location,
+            date,
+            image_url,
+            prize,
+            tags,
+            link
+          )
+        `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (savedErr) throw savedErr;
+      if (joinedError) console.warn("Join query failed:", joinedError);
+      console.log("Join result:", joinedData);
 
-      if (!saved || saved.length === 0) {
-        setSavedEvents([]);
-        return;
+      let events: Event[] = [];
+
+      if (joinedData && joinedData.length > 0 && joinedData[0].events) {
+        events = joinedData
+          .map((row: any) => row.events)
+          .filter((e: Event) => !!e);
+      } else {
+        // --- Fallback: two-step query ---
+        console.log("Falling back to two-step query...");
+        const { data: saved, error: savedErr } = await supabase
+          .from('saved_events')
+          .select('event_id')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (savedErr) throw savedErr;
+        if (!saved || saved.length === 0) {
+          setSavedEvents([]);
+          return;
+        }
+
+        const eventIds = saved.map((s) => s.event_id);
+        const { data: eventsData, error: eventsErr } = await supabase
+          .from('events')
+          .select('*')
+          .in('id', eventIds);
+
+        if (eventsErr) throw eventsErr;
+
+        // Remove invalid saved IDs
+        const ordered = eventIds
+          .map((id) => eventsData?.find((e) => e.id === id))
+          .filter((e): e is Event => !!e);
+
+        if (ordered.length < saved.length) {
+          console.warn("Cleaning up invalid saved IDs...");
+          const validIds = new Set(ordered.map((e) => e.id));
+          const invalid = saved.filter((s) => !validIds.has(s.event_id));
+          for (const bad of invalid) {
+            await supabase
+              .from('saved_events')
+              .delete()
+              .eq('user_id', user.id)
+              .eq('event_id', bad.event_id);
+          }
+        }
+
+        events = ordered;
       }
 
-      // Step 2: fetch event details using the IDs
-      const eventIds = saved.map((s) => s.event_id);
-      const { data: events, error: eventsErr } = await supabase
-        .from('events')
-        .select('*')
-        .in('id', eventIds);
-
-      if (eventsErr) throw eventsErr;
-
-      // maintain same order as saved order
-      const orderedEvents = eventIds
-        .map((id) => events?.find((e) => e.id === id))
-        .filter((e): e is Event => !!e);
-
-      setSavedEvents(orderedEvents);
+      console.log("Final events:", events);
+      setSavedEvents(events);
     } catch (err) {
       console.error('Error fetching saved events:', err);
       setSavedEvents([]);
@@ -89,6 +139,20 @@ export function SavedTab() {
   const closeModal = () => {
     setIsModalOpen(false);
     setTimeout(() => setSelectedEvent(null), 250);
+  };
+
+  const removeSaved = async (eventId: string) => {
+    if (!user) return;
+    try {
+      await supabase
+        .from('saved_events')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('event_id', eventId);
+      setSavedEvents((prev) => prev.filter((e) => e.id !== eventId));
+    } catch (err) {
+      console.error("Failed to unsave event:", err);
+    }
   };
 
   if (loading) {
@@ -129,13 +193,22 @@ export function SavedTab() {
             )}
 
             <div className="p-5 space-y-3">
-              <div>
-                <h3 className="text-lg font-bold text-white mb-1">
-                  {event.title}
-                </h3>
-                {event.organization && (
-                  <p className="text-gray-400 text-sm">{event.organization}</p>
-                )}
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-white mb-1">
+                    {event.title}
+                  </h3>
+                  {event.organization && (
+                    <p className="text-gray-400 text-sm">{event.organization}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => removeSaved(event.id)}
+                  className="text-gray-500 hover:text-red-500 transition"
+                  title="Remove from saved"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
 
               <p className="text-gray-300 text-sm line-clamp-2">
@@ -161,11 +234,7 @@ export function SavedTab() {
         ))}
       </div>
 
-      <EventModal
-        event={selectedEvent}
-        isOpen={isModalOpen}
-        onClose={closeModal}
-      />
+      <EventModal event={selectedEvent} isOpen={isModalOpen} onClose={closeModal} />
     </>
   );
 }
