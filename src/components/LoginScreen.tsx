@@ -29,7 +29,7 @@ export function LoginScreen() {
       setError('');
       await signInWithGoogle();
     } catch (err) {
-      setError('Failed to sign in with Google');
+      setError('Failed to sign in with Google, how you tryna front /w a google account');
       console.error(err);
     } finally {
       setLoading(false);
@@ -45,7 +45,7 @@ export function LoginScreen() {
     try {
       if (isSignUp) {
         if (!fullName.trim()) {
-          setError('Please enter your full name');
+          setError('Please enter your full name fam');
           setLoading(false);
           return;
         }
@@ -57,14 +57,14 @@ export function LoginScreen() {
       }
     } catch (err: any) {
       if (err.code === 'user_already_exists' || err.message?.includes('already registered')) {
-        setError('This email is already registered.');
+        setError('This email is already registere, dumbass.');
         setTimeout(() => {
           toggleAuthMode(false);
         }, 2000);
       } else if (err.code === 'email_confirmation_required') {
         setError(err.message);
       } else if (err.message?.includes('Invalid login credentials') || err.message?.includes('Email not confirmed')) {
-        setError('No account found with this email.');
+        setError('No account found with this email, stop tryna cheese me gerbert.');
         setTimeout(() => {
           toggleAuthMode(true);
         }, 2000);
@@ -113,10 +113,11 @@ export function LoginScreen() {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <div className="text-5xl font-bold mb-3">
-            <span className="text-white">vyb</span>
-            <span className="text-[#00BFFF]">in</span>
+            <span className="text-white">Starv</span>
+            <span className="text-[#4C6EF5]">I</span>
+            <span className="text-white">n</span>
           </div>
-          <p className="text-gray-400 text-lg">Discover. Connect. Vybe.</p>
+          <p className="text-gray-400 text-lg">Stay Hungry. Stay Informed.</p>
         </div>
 
         <div className="bg-[#1a1d29] rounded-3xl p-8 shadow-2xl border border-gray-800 overflow-hidden">
@@ -142,7 +143,7 @@ export function LoginScreen() {
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     className="w-full bg-[#0B0C10] text-white pl-12 pr-4 py-4 rounded-xl border border-gray-700 focus:border-[#4C6EF5] focus:outline-none transition-colors"
-                    placeholder="John Doe"
+                    placeholder="John Pork"
                     required={isSignUp}
                   />
                 </div>
@@ -159,8 +160,8 @@ export function LoginScreen() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-[#0B0C10] text-white pl-12 pr-4 py-4 rounded-xl border border-gray-700 focus:border-[#4C6EF5] focus:outline-none transition-colors"
-                  placeholder="yourname@example.com"
+                  className="w-full bg-[#0B0C10] text-purple pl-12 pr-4 py-4 rounded-xl border border-gray-700 focus:border-[#4C6EF5] focus:outline-none transition-colors"
+                  placeholder="you@example.com"
                   required
                 />
               </div>

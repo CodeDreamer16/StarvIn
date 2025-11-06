@@ -43,10 +43,11 @@ export function SplashScreen({ onComplete, checkingAuth = false }: SplashScreenP
     >
       <div className="text-center space-y-6">
         <div className="text-6xl font-bold animate-pulse">
-          <span className="text-white">vyb</span>
-          <span className="text-[#00BFFF]">in</span>
+          <span className="text-white">Starv</span>
+          <span className="text-[#4C6EF5]">I</span>
+          <span className="text-white">n</span>
         </div>
-        <p className="text-gray-400 text-lg">Discover. Connect. Vybe.</p>
+        <p className="text-gray-400 text-lg">Stay Hungry. Stay Informed.</p>
       </div>
     </div>
   );

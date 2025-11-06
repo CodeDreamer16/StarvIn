@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LogOut, Mail, Calendar, Bookmark, ChevronRight, Settings } from 'lucide-react';
+import { LogOut, Mail, Calendar, Bookmark, ChevronRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -15,11 +15,7 @@ interface Stats {
   interests: number;
 }
 
-interface ProfileTabProps {
-  onEditPreferences?: () => void;
-}
-
-export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
+export function ProfileTab() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [stats, setStats] = useState<Stats>({ applications: 0, savedEvents: 0, interests: 0 });
   const [loading, setLoading] = useState(true);
@@ -56,7 +52,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
       const [applicationsRes, savedRes, interestsRes] = await Promise.all([
         supabase.from('applications').select('id', { count: 'exact' }).eq('user_id', user.id),
         supabase.from('saved_events').select('event_id', { count: 'exact' }).eq('user_id', user.id),
-        supabase.from('user_preferences').select('interest_name', { count: 'exact' }).eq('user_id', user.id),
+        supabase.from('user_interests').select('interest_id', { count: 'exact' }).eq('user_id', user.id),
       ]);
 
       setStats({
@@ -154,19 +150,6 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
               <div className="flex items-center gap-3">
                 <Bookmark className="w-5 h-5 text-gray-400" />
                 <span className="text-white font-medium">Saved Events</span>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </button>
-          </div>
-
-          <div className="bg-[#1a1d29] rounded-2xl border border-gray-800 overflow-hidden">
-            <button
-              onClick={onEditPreferences}
-              className="w-full p-5 flex items-center justify-between hover:bg-gray-800/30 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <Settings className="w-5 h-5 text-gray-400" />
-                <span className="text-white font-medium">Edit Preferences</span>
               </div>
               <ChevronRight className="w-5 h-5 text-gray-400" />
             </button>
