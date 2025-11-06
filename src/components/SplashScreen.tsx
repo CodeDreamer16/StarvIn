@@ -20,8 +20,8 @@ export function SplashScreen({ onComplete, checkingAuth = false }: SplashScreenP
 
     // Tagline reveals
     timers.push(setTimeout(() => setWordVisibility([true, false, false]), 1000)); // Discover
-    timers.push(setTimeout(() => setWordVisibility([true, true, false]), 2000)); // Connect
-    timers.push(setTimeout(() => setWordVisibility([true, true, true]), 3000)); // Vybe
+    timers.push(setTimeout(() => setWordVisibility([true, true, false]), 1500)); // Connect
+    timers.push(setTimeout(() => setWordVisibility([true, true, true]), 2000)); // Vybe
 
     // 🕒 Extended duration for full display (fade out later)
     if (!checkingAuth) {
