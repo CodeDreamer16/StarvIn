@@ -67,7 +67,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("full_name, avatar_url, banner_url")
+      .select("full_name, avatar_url")
       .eq("id", user.id)
       .single();
 
@@ -76,7 +76,6 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
       return;
     }
 
-    // Create missing profile automatically
     if (!data) {
       const { error: insertError } = await supabase
         .from("profiles")
@@ -167,7 +166,6 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       if (contextSignOut) await contextSignOut();
-      // ⚠️ Do NOT clear avatar cache — keeps photo after re-login
       window.location.reload();
     } catch (err) {
       console.error("Sign out error:", err);
@@ -184,19 +182,28 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
 
   return (
     <div className="flex-1 overflow-y-auto bg-[#0B0C10] text-white pb-24">
-      {/* 🖼️ Banner */}
-      <div className="relative h-44 bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5]">
-        {profile?.banner_url && (
-          <img
-            src={profile.banner_url}
-            alt="Banner"
-            className="absolute inset-0 w-full h-full object-cover opacity-90"
-          />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-[#0B0C10]/80" />
+
+      {/* 🖼️ Animated Banner */}
+      <div className="relative h-44 overflow-hidden bg-gradient-to-r from-[#00BFFF] via-[#4C6EF5] to-[#00BFFF] animate-banner-glow">
+        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-[#0B0C10]/80 z-10" />
+        <div className="absolute inset-0 animate-pulse-gradient opacity-40" />
+
+        {/* Tagline */}
+        <div className="absolute inset-0 flex items-center justify-center text-center z-20">
+          <h1
+            className="text-3xl font-semibold text-white/20 tracking-wide select-none"
+            style={{
+              textShadow:
+                "0 0 15px rgba(0,191,255,0.4), 0 0 30px rgba(76,110,245,0.3)",
+              letterSpacing: "0.06em",
+            }}
+          >
+            Discover. Connect. Vybe.
+          </h1>
+        </div>
 
         {/* ⚙️ Settings */}
-        <div className="absolute top-4 right-4" ref={settingsRef}>
+        <div className="absolute top-4 right-4 z-30" ref={settingsRef}>
           <button
             onClick={() => setShowSettings(!showSettings)}
             className="transition-transform duration-300 hover:rotate-90 active:rotate-180"
