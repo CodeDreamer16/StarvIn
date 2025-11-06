@@ -9,15 +9,12 @@ import {
   Eye,
   CheckCircle,
   X,
-  Image as ImageIcon,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
 const DEFAULT_AVATAR =
   "https://cdn-icons-png.flaticon.com/512/847/847969.png";
-const DEFAULT_BANNER =
-  "https://images.unsplash.com/photo-1520975922071-c0b4b9e3da9a?auto=format&fit=crop&w=1350&q=80";
 
 interface ProfileTabProps {
   onEditPreferences: () => void;
@@ -29,30 +26,22 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [showCameraMenu, setShowCameraMenu] = useState(false);
-  const [showBannerMenu, setShowBannerMenu] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [bannerSuccess, setBannerSuccess] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
-  const [showBannerModal, setShowBannerModal] = useState(false);
 
   const settingsRef = useRef<HTMLDivElement | null>(null);
   const cameraRef = useRef<HTMLDivElement | null>(null);
-  const bannerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const bannerInputRef = useRef<HTMLInputElement | null>(null);
 
-  // 🚀 Load cached avatar & banner instantly
+  // Load cached avatar per user for instant UI
   useEffect(() => {
     if (!user) return;
     const cachedAvatar = localStorage.getItem(`avatar_url_${user.id}`);
-    const cachedBanner = localStorage.getItem(`banner_url_${user.id}`);
-    setProfile((prev: any) => ({
-      ...prev,
-      avatar_url: cachedAvatar || prev?.avatar_url,
-      banner_url: cachedBanner || prev?.banner_url,
-    }));
+    if (cachedAvatar) {
+      setProfile((prev: any) => ({ ...prev, avatar_url: cachedAvatar }));
+    }
   }, [user]);
 
   useEffect(() => {
@@ -68,8 +57,6 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         setShowSettings(false);
       if (cameraRef.current && !cameraRef.current.contains(e.target as Node))
         setShowCameraMenu(false);
-      if (bannerRef.current && !bannerRef.current.contains(e.target as Node))
-        setShowBannerMenu(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -77,6 +64,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
 
   const loadProfile = async () => {
     if (!user) return;
+
     const { data, error } = await supabase
       .from("profiles")
       .select("full_name, avatar_url, banner_url")
@@ -88,6 +76,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
       return;
     }
 
+    // Create missing profile automatically
     if (!data) {
       const { error: insertError } = await supabase
         .from("profiles")
@@ -99,10 +88,9 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
     }
 
     setProfile(data);
-    if (data.avatar_url)
+    if (data.avatar_url) {
       localStorage.setItem(`avatar_url_${user.id}`, data.avatar_url);
-    if (data.banner_url)
-      localStorage.setItem(`banner_url_${user.id}`, data.banner_url);
+    }
   };
 
   const loadNotifications = async () => {
@@ -112,32 +100,28 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
     ]);
   };
 
-  const uploadToStorage = async (bucket: string, file: File, key: string) => {
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-    const filePath = `${key}/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from(bucket)
-      .upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: true,
-        contentType: file.type,
-      });
-    if (uploadError) throw uploadError;
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from(bucket).getPublicUrl(filePath);
-    return publicUrl;
-  };
-
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       const file = e.target.files?.[0];
       if (!file || !user) return;
       setUploading(true);
-      const publicUrl = await uploadToStorage("avatars", file, "avatars");
+
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: file.type,
+        });
+      if (uploadError) throw uploadError;
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("avatars").getPublicUrl(filePath);
 
       const { error: updateError } = await supabase
         .from("profiles")
@@ -152,54 +136,28 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
       setTimeout(() => setUploadSuccess(false), 1200);
     } catch (err) {
       console.error(err);
-      alert("Failed to upload avatar.");
+      alert("Upload failed. Please try again.");
     } finally {
       setUploading(false);
       setShowCameraMenu(false);
     }
   };
 
-  const handleBannerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    try {
-      const file = e.target.files?.[0];
-      if (!file || !user) return;
-      setUploading(true);
-      const publicUrl = await uploadToStorage("banners", file, "banners");
-
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ banner_url: publicUrl })
-        .eq("id", user.id);
-      if (updateError) throw updateError;
-
-      setProfile((p: any) => ({ ...p, banner_url: publicUrl }));
-      localStorage.setItem(`banner_url_${user.id}`, publicUrl);
-
-      setBannerSuccess(true);
-      setTimeout(() => setBannerSuccess(false), 1200);
-    } catch (err) {
-      console.error(err);
-      alert("Failed to upload banner.");
-    } finally {
-      setUploading(false);
-      setShowBannerMenu(false);
-    }
-  };
-
-  const handleRemoveBanner = async () => {
+  const handleRemoveAvatar = async () => {
     if (!user) return;
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({ banner_url: null })
+        .update({ avatar_url: null })
         .eq("id", user.id);
       if (error) throw error;
-      setProfile((p: any) => ({ ...p, banner_url: null }));
-      localStorage.removeItem(`banner_url_${user.id}`);
-      setShowBannerMenu(false);
+
+      setProfile((p: any) => ({ ...p, avatar_url: null }));
+      localStorage.removeItem(`avatar_url_${user.id}`);
+      setShowCameraMenu(false);
     } catch (err) {
       console.error(err);
-      alert("Failed to remove banner.");
+      alert("Failed to remove photo.");
     }
   };
 
@@ -209,10 +167,11 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       if (contextSignOut) await contextSignOut();
+      // ⚠️ Do NOT clear avatar cache — keeps photo after re-login
       window.location.reload();
     } catch (err) {
       console.error("Sign out error:", err);
-      alert("Failed to sign out.");
+      alert("Failed to sign out. Please try again.");
     } finally {
       setSigningOut(false);
     }
@@ -222,77 +181,19 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
     profile?.avatar_url ||
     localStorage.getItem(`avatar_url_${user?.id}`) ||
     DEFAULT_AVATAR;
-  const bannerSrc =
-    profile?.banner_url ||
-    localStorage.getItem(`banner_url_${user?.id}`) ||
-    DEFAULT_BANNER;
 
   return (
     <div className="flex-1 overflow-y-auto bg-[#0B0C10] text-white pb-24">
       {/* 🖼️ Banner */}
-      <div
-        className="relative h-44 bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] group"
-        ref={bannerRef}
-      >
-        <img
-          src={bannerSrc}
-          alt="Banner"
-          className="absolute inset-0 w-full h-full object-cover opacity-90 transition-all duration-500"
-        />
+      <div className="relative h-44 bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5]">
+        {profile?.banner_url && (
+          <img
+            src={profile.banner_url}
+            alt="Banner"
+            className="absolute inset-0 w-full h-full object-cover opacity-90"
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-[#0B0C10]/80" />
-
-        {/* 📷 Banner Controls */}
-        <button
-          onClick={() => setShowBannerMenu(!showBannerMenu)}
-          disabled={uploading}
-          className="absolute bottom-3 right-3 bg-[#00BFFF]/80 hover:bg-[#1EC8FF] p-2 rounded-full shadow flex items-center justify-center transition"
-        >
-          <ImageIcon className="w-5 h-5 text-white" />
-        </button>
-
-        {showBannerMenu && (
-          <div className="absolute bottom-14 right-3 w-48 bg-[#1a1d29]/90 backdrop-blur-md border border-white/10 rounded-xl shadow-lg overflow-hidden animate-fadeIn z-50 text-[13px]">
-            <button
-              onClick={() => bannerInputRef.current?.click()}
-              className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-white/10 transition text-gray-200"
-            >
-              <Upload className="w-4 h-4 text-[#00BFFF]" />
-              Upload Banner
-            </button>
-            <button
-              onClick={() => {
-                setShowBannerModal(true);
-                setShowBannerMenu(false);
-              }}
-              className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-white/10 transition text-gray-200"
-            >
-              <Eye className="w-4 h-4 text-[#4C6EF5]" />
-              View Banner
-            </button>
-            <button
-              onClick={handleRemoveBanner}
-              className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-red-500/10 text-red-400 transition"
-            >
-              <Trash2 className="w-4 h-4" />
-              Remove Banner
-            </button>
-          </div>
-        )}
-
-        {bannerSuccess && (
-          <div className="absolute bottom-4 left-4 flex items-center gap-2 bg-[#00FFAA]/10 px-3 py-1.5 rounded-full">
-            <CheckCircle className="w-4 h-4 text-[#00FFAA]" />
-            <span className="text-sm text-[#00FFAA]">Banner updated</span>
-          </div>
-        )}
-
-        <input
-          ref={bannerInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleBannerChange}
-          className="hidden"
-        />
 
         {/* ⚙️ Settings */}
         <div className="absolute top-4 right-4" ref={settingsRef}>
@@ -318,7 +219,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         </div>
       </div>
 
-      {/* ✅ Avatar section remains unchanged */}
+      {/* 👤 Profile Photo */}
       <div className="relative -mt-16 flex flex-col items-center">
         <div className="relative group" ref={cameraRef}>
           <img
@@ -326,12 +227,14 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
             alt="Profile"
             className="w-28 h-28 rounded-full border-4 border-[#0B0C10] object-cover shadow-lg transition-all duration-300"
           />
+
           {uploadSuccess && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
               <div className="absolute inset-0 rounded-full bg-[#00FFAA]/15 animate-pulse" />
               <CheckCircle className="w-7 h-7 text-[#00FFAA] opacity-90 animate-fadeIn" />
             </div>
           )}
+
           <button
             onClick={() => setShowCameraMenu(!showCameraMenu)}
             disabled={uploading}
@@ -339,6 +242,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
           >
             <Camera className="w-4 h-4 text-white" />
           </button>
+
           {showCameraMenu && (
             <div className="absolute bottom-12 right-0 w-48 bg-[#1a1d29]/90 backdrop-blur-md border border-white/10 rounded-xl shadow-lg overflow-hidden animate-fadeIn z-50 text-[13px]">
               <button
@@ -359,15 +263,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
                 View Photo
               </button>
               <button
-                onClick={async () => {
-                  await supabase
-                    .from("profiles")
-                    .update({ avatar_url: null })
-                    .eq("id", user.id);
-                  localStorage.removeItem(`avatar_url_${user.id}`);
-                  setProfile((p: any) => ({ ...p, avatar_url: null }));
-                  setShowCameraMenu(false);
-                }}
+                onClick={handleRemoveAvatar}
                 className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-red-500/10 text-red-400 transition"
               >
                 <Trash2 className="w-4 h-4" />
@@ -375,6 +271,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
               </button>
             </div>
           )}
+
           <input
             ref={fileInputRef}
             type="file"
@@ -390,6 +287,17 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         <p className="text-gray-400 text-sm">
           Signed in as {user?.email || "—"}
         </p>
+      </div>
+
+      {/* ⚙️ Edit Preferences */}
+      <div className="flex flex-col items-center gap-3 mt-4">
+        <button
+          onClick={onEditPreferences}
+          className="w-44 bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] text-white font-medium py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(0,191,255,0.3)] hover:shadow-[0_0_25px_rgba(0,191,255,0.6)] hover:scale-[1.03] active:scale-[1.00] transition-all"
+        >
+          <Settings className="w-4 h-4" />
+          Edit Preferences
+        </button>
       </div>
 
       {/* 🔔 Notifications */}
@@ -410,25 +318,6 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
           </div>
         ))}
       </div>
-
-      {/* 🖼️ Banner Modal */}
-      {showBannerModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
-          <div className="relative bg-[#11121A]/90 rounded-3xl shadow-[0_0_20px_rgba(0,191,255,0.25)] p-4 w-[90vw] max-w-2xl h-[60vh] flex items-center justify-center border border-white/5">
-            <img
-              src={bannerSrc}
-              alt="Banner zoom"
-              className="w-full h-full object-cover rounded-2xl border border-white/5"
-            />
-            <button
-              onClick={() => setShowBannerModal(false)}
-              className="absolute top-3 right-3 p-1.5 bg-white/10 hover:bg-white/20 rounded-full transition"
-            >
-              <X className="w-5 h-5 text-gray-300 hover:text-white" />
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* 🖼️ Avatar Modal */}
       {showAvatarModal && (
