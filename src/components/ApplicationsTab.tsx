@@ -16,6 +16,7 @@ interface EventApplication {
     date: string;
     location: string | null;
     image_url: string | null;
+    link?: string | null;
   };
 }
 
@@ -52,7 +53,8 @@ export function ApplicationsTab() {
             description,
             date,
             location,
-            image_url
+            image_url,
+            link
           )
         `
         )
@@ -65,7 +67,6 @@ export function ApplicationsTab() {
       console.error("Error fetching applications:", err);
     } finally {
       setLoading(false);
-      // trigger smooth fade-in once content is loaded
       setTimeout(() => setFadeIn(true), 100);
     }
   };
