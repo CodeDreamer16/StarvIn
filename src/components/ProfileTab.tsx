@@ -71,7 +71,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 text-sm mb-6">
           <div className="flex items-center gap-2">
             <Mail className="w-4 h-4 text-[#4C6EF5]" />
-            <span className="text-gray-300">contact@vybin.org</span>
+            <span className="text-gray-300">vybin.org</span>
           </div>
           <div className="flex items-center gap-2">
             <Instagram className="w-4 h-4 text-[#A78BFA]" />
