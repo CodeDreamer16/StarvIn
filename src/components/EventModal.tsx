@@ -6,15 +6,15 @@ interface Event {
   id: string;
   title: string;
   description: string;
-  event_type: string;
-  organization: string;
-  location: string;
+  event_type?: string;
+  organization?: string;
+  location?: string;
   date: string;
-  deadline: string | null;
-  image_url: string | null;
-  prize: string;
-  tags: string[];
-  link?: string;
+  deadline?: string | null;
+  image_url?: string | null;
+  prize?: string;
+  tags?: string[];
+  link?: string | null;
 }
 
 interface EventModalProps {
@@ -24,7 +24,6 @@ interface EventModalProps {
 }
 
 export function EventModal({ event, isOpen, onClose }: EventModalProps) {
-  // 🔒 lock page scroll while modal is open
   useEffect(() => {
     if (isOpen) {
       const prev = document.body.style.overflow;
@@ -35,12 +34,9 @@ export function EventModal({ event, isOpen, onClose }: EventModalProps) {
     }
   }, [isOpen]);
 
-  // ⎋ close on Escape
   useEffect(() => {
     if (!isOpen) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
+    const handler = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [isOpen, onClose]);
@@ -65,20 +61,17 @@ export function EventModal({ event, isOpen, onClose }: EventModalProps) {
       role="dialog"
       aria-modal="true"
     >
-      {/* Backdrop */}
       <button
         aria-label="Close"
         onClick={onClose}
         className="fixed inset-0 bg-black/70 backdrop-blur-md cursor-default"
       />
 
-      {/* Modal container */}
       <div
         className="relative w-full max-w-2xl overflow-hidden rounded-3xl border border-gray-800 bg-[#1a1d29] shadow-2xl animate-slideUp"
         style={{ maxHeight: "90vh", display: "flex", flexDirection: "column" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close button */}
         <button
           onClick={onClose}
           className="absolute right-4 top-4 z-10 rounded-full bg-black/50 p-2 backdrop-blur-sm transition-colors hover:bg-black/70"
@@ -86,7 +79,6 @@ export function EventModal({ event, isOpen, onClose }: EventModalProps) {
           <X className="h-6 w-6 text-white" />
         </button>
 
-        {/* Header image (conditionally rendered) */}
         {event.image_url ? (
           <div
             className="relative h-56 w-full bg-cover bg-center md:h-64"
@@ -103,7 +95,6 @@ export function EventModal({ event, isOpen, onClose }: EventModalProps) {
             </div>
           </div>
         ) : (
-          // Optional fallback if no image
           <div className="h-20 w-full bg-gradient-to-r from-[#00BFFF]/30 to-[#4C6EF5]/20 flex items-center justify-start px-6">
             {event.event_type && (
               <span className="rounded-full bg-[#4C6EF5]/80 px-4 py-1.5 text-sm font-semibold text-white shadow-md">
@@ -113,7 +104,6 @@ export function EventModal({ event, isOpen, onClose }: EventModalProps) {
           </div>
         )}
 
-        {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-6">
             <div>
@@ -125,18 +115,18 @@ export function EventModal({ event, isOpen, onClose }: EventModalProps) {
 
             <div className="space-y-3">
               <div className="flex items-start gap-3 text-gray-300">
-                <Calendar className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#4C6EF5]" />
+                <Calendar className="mt-0.5 h-5 w-5 text-[#4C6EF5]" />
                 <span>{formatDate(event.date)}</span>
               </div>
 
               <div className="flex items-start gap-3 text-gray-300">
-                <MapPin className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#4C6EF5]" />
+                <MapPin className="mt-0.5 h-5 w-5 text-[#4C6EF5]" />
                 <span>{event.location}</span>
               </div>
 
               {event.prize && (
                 <div className="flex items-start gap-3 font-medium text-[#4C6EF5]">
-                  <Award className="mt-0.5 h-5 w-5 flex-shrink-0" />
+                  <Award className="mt-0.5 h-5 w-5" />
                   <span>{event.prize}</span>
                 </div>
               )}
