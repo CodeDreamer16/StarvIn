@@ -32,7 +32,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
   };
 
   const loadNotifications = async () => {
-    // temporary mock notifications — later link to event system
+    // Temporary mock notifications — will later be event-triggered
     setNotifications([
       { id: 1, title: "🎉 New event: TechX McGill 2025", date: "Nov 8" },
       { id: 2, title: "Reminder: AI & Ethics Panel tomorrow", date: "Nov 7" },
@@ -100,11 +100,12 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
           Edit Profile
         </button>
 
-        {/* Edit Preferences — functional */}
+        {/* Edit Preferences (functional + icon) */}
         <button
           onClick={onEditPreferences}
-          className="w-44 bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] text-white font-medium py-2.5 rounded-xl shadow-[0_0_15px_rgba(0,191,255,0.3)] hover:shadow-[0_0_25px_rgba(0,191,255,0.6)] hover:scale-[1.03] active:scale-[1.00] transition-all"
+          className="w-44 bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] text-white font-medium py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(0,191,255,0.3)] hover:shadow-[0_0_25px_rgba(0,191,255,0.6)] hover:scale-[1.03] active:scale-[1.00] transition-all"
         >
+          <Settings className="w-4 h-4" />
           Edit Preferences
         </button>
       </div>
