@@ -129,10 +129,16 @@ export function ApplicationsTab() {
                     )}
                   </div>
 
-                  <span className="flex items-center gap-1 text-green-400 text-sm font-medium">
-                    <CheckCircle2 className="w-4 h-4" />
-                    Applied
-                  </span>
+                  <div className="flex flex-col items-end text-sm font-medium text-green-400">
+                    <div className="flex items-center gap-1">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Applied</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-gray-400 text-xs mt-1">
+                      <Calendar className="w-3 h-3" />
+                      <span>{formatDate(app.created_at)}</span>
+                    </div>
+                  </div>
                 </div>
 
                 <p className="text-gray-300 text-sm line-clamp-2">
@@ -146,20 +152,13 @@ export function ApplicationsTab() {
                   <span>{event?.location ?? 'McGill University'}</span>
                 </div>
 
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => openModal(event)}
-                    className="flex-1 py-2 rounded-xl font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white hover:opacity-90 transition-opacity"
-                  >
-                    <Eye className="w-4 h-4" />
-                    View Details
-                  </button>
-
-                  <div className="flex items-center justify-center px-3 rounded-xl bg-[#1f1c2c] text-gray-400 border border-gray-700">
-                    <Calendar className="w-4 h-4 mr-1" />
-                    {formatDate(app.created_at)}
-                  </div>
-                </div>
+                <button
+                  onClick={() => openModal(event)}
+                  className="w-full py-2 rounded-xl font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white hover:opacity-90 transition-opacity"
+                >
+                  <Eye className="w-4 h-4" />
+                  View Details
+                </button>
               </div>
             </div>
           );
