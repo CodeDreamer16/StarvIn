@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Camera, Bell, Bookmark, Settings, LogOut, User } from "lucide-react";
+import { Camera, Bell, Settings, LogOut, User, Upload } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -10,18 +10,17 @@ interface ProfileTabProps {
 export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
   const { user, signOut: contextSignOut } = useAuth();
   const [profile, setProfile] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"notifications" | "saved">("notifications");
   const [notifications, setNotifications] = useState<any[]>([]);
-  const [savedEvents, setSavedEvents] = useState<any[]>([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const settingsRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (user) {
       loadProfile();
       loadNotifications();
-      loadSavedEvents();
     }
   }, [user]);
 
@@ -38,7 +37,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
   const loadProfile = async () => {
     const { data } = await supabase
       .from("profiles")
-      .select("full_name, avatar_url, created_at")
+      .select("full_name, avatar_url, banner_url, created_at")
       .eq("id", user.id)
       .single();
     setProfile(data);
@@ -51,16 +50,41 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
     ]);
   };
 
-  const loadSavedEvents = async () => {
-    const { data } = await supabase
-      .from("saved_events")
-      .select("event_id, events(title, date)")
-      .eq("user_id", user.id);
-    setSavedEvents(data || []);
-  };
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = e.target.files?.[0];
+      if (!file || !user) return;
+      setUploading(true);
 
-  const handleAvatarChange = () => {
-    alert("Profile picture upload coming soon 🚀");
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("avatars").getPublicUrl(filePath);
+
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: publicUrl })
+        .eq("id", user.id);
+
+      if (updateError) throw updateError;
+
+      setProfile((p: any) => ({ ...p, avatar_url: publicUrl }));
+      alert("Profile photo updated ✅");
+    } catch (err) {
+      console.error(err);
+      alert("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSignOut = async () => {
@@ -68,7 +92,6 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
       setSigningOut(true);
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-
       if (contextSignOut) await contextSignOut();
       window.location.reload();
     } catch (err) {
@@ -87,15 +110,22 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
 
   return (
     <div className="flex-1 overflow-y-auto bg-[#0B0C10] text-white pb-24">
-      {/* Header / Cover */}
-      <div className="relative bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] h-44">
-        <div className="absolute inset-0 opacity-40 bg-[url('/wave-pattern.svg')] bg-cover" />
+      {/* 🖼️ Banner section */}
+      <div className="relative h-44 bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5]">
+        {profile?.banner_url && (
+          <img
+            src={profile.banner_url}
+            alt="Banner"
+            className="absolute inset-0 w-full h-full object-cover opacity-90"
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-[#0B0C10]/80" />
 
-        {/* ⚙️ Settings Dropdown */}
+        {/* ⚙️ Settings */}
         <div className="absolute top-4 right-4" ref={settingsRef}>
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className={`transition-transform duration-300 hover:rotate-90 active:rotate-180`}
+            className="transition-transform duration-300 hover:rotate-90 active:rotate-180"
           >
             <Settings className="w-6 h-6 text-white/80 hover:text-white transition" />
           </button>
@@ -125,28 +155,42 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         </div>
       </div>
 
-      {/* Profile photo */}
+      {/* 👤 Profile photo */}
       <div className="relative -mt-16 flex flex-col items-center">
-        <div className="relative">
+        <div className="relative group">
           <img
             src={profile?.avatar_url || "https://via.placeholder.com/100"}
             alt="Profile"
             className="w-28 h-28 rounded-full border-4 border-[#0B0C10] object-cover shadow-lg"
           />
           <button
-            onClick={handleAvatarChange}
-            className="absolute bottom-1 right-1 bg-[#00BFFF] p-2 rounded-full shadow hover:bg-[#1EC8FF] transition"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="absolute bottom-1 right-1 bg-[#00BFFF] p-2 rounded-full shadow hover:bg-[#1EC8FF] transition flex items-center justify-center"
           >
-            <Camera className="w-4 h-4 text-white" />
+            {uploading ? (
+              <Upload className="w-4 h-4 text-white animate-pulse" />
+            ) : (
+              <Camera className="w-4 h-4 text-white" />
+            )}
           </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleAvatarChange}
+            className="hidden"
+          />
         </div>
-        <h2 className="mt-3 text-2xl font-semibold">{profile?.full_name || "User"}</h2>
+        <h2 className="mt-3 text-2xl font-semibold">
+          {profile?.full_name || "User"}
+        </h2>
         <p className="text-gray-400 text-sm">
           Member since {formatMemberSince(profile?.created_at)}
         </p>
       </div>
 
-      {/* Edit Preferences (Main Section) */}
+      {/* Edit Preferences */}
       <div className="flex flex-col items-center gap-3 mt-4">
         <button
           onClick={onEditPreferences}
@@ -157,60 +201,26 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         </button>
       </div>
 
-      {/* Tabs */}
+      {/* 🔔 Notifications only */}
       <div className="mt-8 flex justify-center gap-10 border-b border-white/10">
-        <button
-          className={`pb-3 text-sm font-medium ${
-            activeTab === "notifications"
-              ? "text-[#00BFFF] border-b-2 border-[#00BFFF]"
-              : "text-gray-400"
-          }`}
-          onClick={() => setActiveTab("notifications")}
-        >
+        <button className="pb-3 text-sm font-medium text-[#00BFFF] border-b-2 border-[#00BFFF]">
           <Bell className="inline w-4 h-4 mr-1" /> Notifications
-        </button>
-        <button
-          className={`pb-3 text-sm font-medium ${
-            activeTab === "saved"
-              ? "text-[#00BFFF] border-b-2 border-[#00BFFF]"
-              : "text-gray-400"
-          }`}
-          onClick={() => setActiveTab("saved")}
-        >
-          <Bookmark className="inline w-4 h-4 mr-1" /> Saved
         </button>
       </div>
 
-      {/* Content */}
       <div className="px-6 mt-6 space-y-4">
-        {activeTab === "notifications" ? (
-          notifications.length > 0 ? (
-            notifications.map((n) => (
-              <div
-                key={n.id}
-                className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition"
-              >
-                <p className="font-medium">{n.title}</p>
-                <p className="text-sm text-gray-400 mt-1">{n.date}</p>
-              </div>
-            ))
-          ) : (
-            <p className="text-gray-400 text-center">No new notifications</p>
-          )
-        ) : savedEvents.length > 0 ? (
-          savedEvents.map((s) => (
+        {notifications.length > 0 ? (
+          notifications.map((n) => (
             <div
-              key={s.event_id}
+              key={n.id}
               className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition"
             >
-              <p className="font-medium">{s.events.title}</p>
-              <p className="text-sm text-gray-400 mt-1">
-                {new Date(s.events.date).toLocaleDateString()}
-              </p>
+              <p className="font-medium">{n.title}</p>
+              <p className="text-sm text-gray-400 mt-1">{n.date}</p>
             </div>
           ))
         ) : (
-          <p className="text-gray-400 text-center">No saved events yet</p>
+          <p className="text-gray-400 text-center">No new notifications</p>
         )}
       </div>
     </div>
