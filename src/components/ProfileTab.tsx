@@ -3,7 +3,11 @@ import { Camera, Bell, Bookmark, Settings } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
-export function ProfileTab() {
+interface ProfileTabProps {
+  onEditPreferences: () => void;
+}
+
+export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
   const { user } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"notifications" | "saved">("notifications");
@@ -44,14 +48,13 @@ export function ProfileTab() {
   };
 
   const handleAvatarChange = () => {
-    // trigger Supabase upload logic (to be added later)
     alert("Profile picture upload coming soon 🚀");
   };
 
   const formatMemberSince = (dateString: string) => {
     if (!dateString) return "—";
     const d = new Date(dateString);
-    return d.toLocaleString("default", { month: "long", year: "numeric" }); // e.g. November 2025
+    return d.toLocaleString("default", { month: "long", year: "numeric" });
   };
 
   return (
@@ -97,9 +100,9 @@ export function ProfileTab() {
           Edit Profile
         </button>
 
-        {/* Edit Preferences */}
+        {/* Edit Preferences — functional */}
         <button
-          onClick={() => alert("Preference editor coming soon!")}
+          onClick={onEditPreferences}
           className="w-44 bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5] text-white font-medium py-2.5 rounded-xl shadow-[0_0_15px_rgba(0,191,255,0.3)] hover:shadow-[0_0_25px_rgba(0,191,255,0.6)] hover:scale-[1.03] active:scale-[1.00] transition-all"
         >
           Edit Preferences
