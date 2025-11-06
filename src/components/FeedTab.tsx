@@ -25,43 +25,28 @@ interface Application { event_id: string }
 /** 🔎 Interest → keyword map (expandable) */
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'Wellness & Mental Health': [
-    'wellness', 'mental health', 'therapy', 'yoga', 'stress', 'anxiety', 'mindfulness',
-    'student wellness hub', 'health support', 'meditation', 'relaxation', 'self-care',
-    'counseling', 'mental', 'support group', 'mental wellbeing'
+    'wellness','mental','therapy','yoga','stress','anxiety','support group','mindfulness','meditation','health','well-being','wellbeing','care'
   ],
   'Career & Professional Development': [
-    'career', 'internship', 'job', 'resume', 'cv', 'networking', 'linkedin',
-    'career planning service', 'career advising', 'career fair', 'employability',
-    'industry', 'professional development', 'interview skills', 'graduate opportunities',
-    'skillsets', 'graduate workshops', 'apa citation', 'apa', 'productivity',
-    'time management', 'academic writing', 'study skills', 'communication skills',
-    'negotiation', 'graduate life', 'professional skills', 'writing workshop',
-    'career services', 'career prep', 'career readiness', 'graduate student',
-    'success strategies'
+    'career','job','internship','resume','cv','linkedin','recruit','network','networking','employer','interview','negotiation','workshop career'
   ],
   'Workshops & Skill Building': [
-    'workshop', 'training', 'skill building', 'tutorial', 'learning', 'skillsets',
-    'graduate workshops', 'academic skills', 'study skills', 'seminar', 'hands-on'
+    'workshop','skill','training','tutorial','learn','skillsets','certificate','session','hands-on','how to','seminar'
   ],
   'Social & Community Events': [
-    'social', 'community', 'meetup', 'event', 'gathering', 'party', 'connect',
-    'student life', 'campus life', 'community event', 'peer network', 'hangout', 'mix and mingle'
+    'social','community','mixer','meetup','gathering','party','network','connect','hangout','celebration','circle'
   ],
   'Arts & Creative Activities': [
-    'art', 'creative', 'craft', 'drawing', 'painting', 'film', 'music', 'photography',
-    'studio', 'gallery', 'design', 'writing', 'artistic', 'performance'
+    'art','creative','hive','studio','crochet','craft','drawing','painting','music','film','theatre','photography'
   ],
   'Academic Support & Research': [
-    'academic', 'research', 'study', 'writing', 'library', 'thesis', 'citation', 'apa',
-    'study group', 'learning services', 'grad research', 'study tips', 'exam prep'
+    'academic','research','library','thesis','phd','masters','dissertation','citation','apa','study tips','writing','grad'
   ],
   'International Student Services': [
-    'international', 'study permit', 'visa', 'iss', 'immigration', 'caq',
-    'global learning', 'international students', 'study abroad', 'intercultural', 'travel', 'exchange'
+    'international','immigration','iss','visa','study permit','caq','global','newcomer','intercultural'
   ],
   'Leadership & Personal Growth': [
-    'leadership', 'leader', 'development', 'growth', 'mindset', 'emerging leaders',
-    'motivation', 'confidence', 'public speaking', 'personal growth', 'imposter syndrome', 'self improvement'
+    'leadership','leader','personal growth','mindset','emerging leaders','development','imposter syndrome','coach'
   ],
 };
 
@@ -85,47 +70,27 @@ const matchesByInterests = (ev: Event, interests: string[]) => {
   const text = normalize(
     `${ev.title} ${stripHTML(ev.description)} ${ev.event_type ?? ''} ${ev.organization ?? ''}`
   );
-  const typeNorm = normalize(ev.event_type);
-  let matchedInterest: string | null = null;
 
+  // Try keyword matching first
   for (const interest of interests) {
-    const kwList = CATEGORY_KEYWORDS[interest] ?? [];
-
-    // 1️⃣ Strong match if event_type directly matches interest
-    if (typeNorm && typeNorm.includes(normalize(interest))) {
-      matchedInterest = interest;
-      break;
-    }
-
-    // 2️⃣ Otherwise, try word-level matching (requires exact keyword presence)
-    for (const kw of kwList) {
-      const kwNorm = normalize(kw);
-      const regex = new RegExp(`\\b${kwNorm}\\b`, 'i'); // whole-word match
-      if (regex.test(text)) {
-        matchedInterest = interest;
-        break;
+    const kw = CATEGORY_KEYWORDS[interest] ?? [];
+    if (kw.length) {
+      for (const word of kw) {
+        if (text.includes(normalize(word))) return true;
       }
     }
-
-    if (matchedInterest) break;
   }
 
-  // 🧩 Logging for debugging:
-  if (!matchedInterest && interests.length > 0) {
-    console.warn('⚠️ No interest match for:', {
-      event: {
-        title: ev.title,
-        event_type: ev.event_type,
-        organization: ev.organization,
-      },
-      checkedInterests: interests,
-      previewText: text.slice(0, 200) + '...',
-    });
+  // Fallback: compare normalized interest name with event_type
+  const typeNorm = normalize(ev.event_type);
+  if (typeNorm) {
+    for (const interest of interests) {
+      if (typeNorm.includes(normalize(interest))) return true;
+    }
   }
 
-  return !!matchedInterest;
+  return false;
 };
-
 
 export function FeedTab() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -200,11 +165,8 @@ export function FeedTab() {
   useEffect(() => {
     if (!containerRef.current) return;
     const el = containerRef.current;
-
-    requestAnimationFrame(() => {
-      el.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-
+    el.scrollTo({ top: 0, behavior: 'smooth' });
+    // reset animation flags for fresh fade-in on each page
     setVisibleCards(new Set());
   }, [currentPage]);
 
