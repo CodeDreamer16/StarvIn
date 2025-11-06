@@ -1,18 +1,27 @@
-import { useEffect, useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
-import { LogOut, Settings, FileText, Bookmark, Star, Mail, Instagram } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import { supabase } from "../lib/supabase";
+import {
+  LogOut,
+  Settings,
+  FileText,
+  Bookmark,
+  Star,
+  Mail,
+  Instagram,
+} from "lucide-react";
 
 interface ProfileTabProps {
   onEditPreferences: () => void;
 }
 
 export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
-  const { user } = useAuth();
+  const { user, signOut: contextSignOut } = useAuth();
   const [applicationsCount, setApplicationsCount] = useState(0);
   const [savedCount, setSavedCount] = useState(0);
   const [interestsCount, setInterestsCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [signingOut, setSigningOut] = useState(false);
 
   // 🔹 Fetch counts dynamically
   useEffect(() => {
@@ -23,20 +32,49 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
   const fetchUserStats = async () => {
     try {
       setLoading(true);
-  
+
       const [apps, saved, prefs] = await Promise.all([
-        supabase.from('applications').select('id', { count: 'exact' }).eq('user_id', user.id),
-        supabase.from('saved_events').select('event_id', { count: 'exact' }).eq('user_id', user.id),
-        supabase.from('user_preferences').select('interest_name', { count: 'exact' }).eq('user_id', user.id),
+        supabase
+          .from("applications")
+          .select("id", { count: "exact" })
+          .eq("user_id", user.id),
+        supabase
+          .from("saved_events")
+          .select("event_id", { count: "exact" })
+          .eq("user_id", user.id),
+        supabase
+          .from("user_preferences")
+          .select("interest_name", { count: "exact" })
+          .eq("user_id", user.id),
       ]);
-  
+
       setApplicationsCount(apps.count || 0);
       setSavedCount(saved.count || 0);
       setInterestsCount(prefs.count || 0);
     } catch (err) {
-      console.error('Error fetching stats:', err);
+      console.error("Error fetching stats:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ✅ Sign Out handler
+  const handleSignOut = async () => {
+    try {
+      setSigningOut(true);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      // If your useAuth context has its own signOut method, call it too:
+      if (contextSignOut) await contextSignOut();
+
+      // Optionally reload to force state reset
+      window.location.reload();
+    } catch (err) {
+      console.error("Error signing out:", err);
+      alert("Failed to sign out. Please try again.");
+    } finally {
+      setSigningOut(false);
     }
   };
 
@@ -49,14 +87,19 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
           <div className="relative flex flex-col sm:flex-row items-center sm:items-end justify-between z-10">
             <div className="flex items-center gap-5">
               <div className="w-20 h-20 bg-[#1a1d29] rounded-full flex items-center justify-center text-3xl font-bold">
-                {user?.email?.[0]?.toUpperCase() ?? 'U'}
+                {user?.email?.[0]?.toUpperCase() ?? "U"}
               </div>
               <div>
-                <h1 className="text-2xl font-bold">{user?.user_metadata?.full_name || 'User'}</h1>
+                <h1 className="text-2xl font-bold">
+                  {user?.user_metadata?.full_name || "User"}
+                </h1>
                 <p className="text-gray-200 text-sm">{user?.email}</p>
                 <p className="text-gray-400 text-xs mt-1">
-                  Member since{' '}
-                  {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
+                  Member since{" "}
+                  {new Date().toLocaleString("default", {
+                    month: "long",
+                    year: "numeric",
+                  })}
                 </p>
               </div>
             </div>
@@ -74,21 +117,21 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
           <div className="rounded-2xl bg-white/5 border border-white/10 p-4 text-center hover:bg-white/10 transition-all shadow-inner">
             <FileText className="w-6 h-6 mx-auto mb-2 text-[#4C6EF5]" />
             <h3 className="text-lg font-semibold">
-              {loading ? '—' : applicationsCount}
+              {loading ? "—" : applicationsCount}
             </h3>
             <p className="text-gray-400 text-xs">Applications</p>
           </div>
           <div className="rounded-2xl bg-white/5 border border-white/10 p-4 text-center hover:bg-white/10 transition-all shadow-inner">
             <Bookmark className="w-6 h-6 mx-auto mb-2 text-[#A78BFA]" />
             <h3 className="text-lg font-semibold">
-              {loading ? '—' : savedCount}
+              {loading ? "—" : savedCount}
             </h3>
             <p className="text-gray-400 text-xs">Saved</p>
           </div>
           <div className="rounded-2xl bg-white/5 border border-white/10 p-4 text-center hover:bg-white/10 transition-all shadow-inner">
             <Star className="w-6 h-6 mx-auto mb-2 text-[#FACC15]" />
             <h3 className="text-lg font-semibold">
-              {loading ? '—' : interestsCount}
+              {loading ? "—" : interestsCount}
             </h3>
             <p className="text-gray-400 text-xs">Interests</p>
           </div>
@@ -96,8 +139,17 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
 
         {/* Sign Out Section */}
         <div className="mt-10 px-6">
-          <button className="w-full bg-[#7f1d1d]/60 hover:bg-[#b91c1c]/80 text-red-300 hover:text-white font-medium rounded-2xl py-3 flex items-center justify-center gap-2 transition-all">
-            <LogOut className="w-4 h-4" /> Sign Out
+          <button
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className={`w-full py-3 rounded-2xl flex items-center justify-center gap-2 font-medium transition-all ${
+              signingOut
+                ? "bg-[#7f1d1d]/30 text-gray-500 cursor-not-allowed"
+                : "bg-[#7f1d1d]/60 hover:bg-[#b91c1c]/80 text-red-300 hover:text-white"
+            }`}
+          >
+            <LogOut className="w-4 h-4" />
+            {signingOut ? "Signing Out..." : "Sign Out"}
           </button>
         </div>
       </div>
@@ -125,7 +177,9 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         </div>
 
         <p className="text-xs text-gray-500">
-          © {new Date().getFullYear()} <span className="text-white font-semibold">Vybin</span>. Connecting McGill students through shared experiences.
+          © {new Date().getFullYear()}{" "}
+          <span className="text-white font-semibold">Vybin</span>. Connecting
+          McGill students through shared experiences.
         </p>
 
         <div className="flex justify-center gap-4 mt-2 text-xs">
