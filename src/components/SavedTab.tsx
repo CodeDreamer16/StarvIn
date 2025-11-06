@@ -35,15 +35,11 @@ export function SavedTab() {
       year: 'numeric',
     });
 
-  // ✅ fetchSavedEvents now auto-falls back if Supabase join fails
   const fetchSavedEvents = async () => {
     if (!user) return;
     setLoading(true);
     try {
-      console.log("Fetching saved events for user:", user.id);
-
-      // --- Try direct join first ---
-      const { data: joinedData, error: joinedError } = await supabase
+      const { data, error } = await supabase
         .from('saved_events')
         .select(`
           event_id,
@@ -64,60 +60,8 @@ export function SavedTab() {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (joinedError) console.warn("Join query failed:", joinedError);
-      console.log("Join result:", joinedData);
-
-      let events: Event[] = [];
-
-      if (joinedData && joinedData.length > 0 && joinedData[0].events) {
-        events = joinedData
-          .map((row: any) => row.events)
-          .filter((e: Event) => !!e);
-      } else {
-        // --- Fallback: two-step query ---
-        console.log("Falling back to two-step query...");
-        const { data: saved, error: savedErr } = await supabase
-          .from('saved_events')
-          .select('event_id')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-
-        if (savedErr) throw savedErr;
-        if (!saved || saved.length === 0) {
-          setSavedEvents([]);
-          return;
-        }
-
-        const eventIds = saved.map((s) => s.event_id);
-        const { data: eventsData, error: eventsErr } = await supabase
-          .from('events')
-          .select('*')
-          .in('id', eventIds);
-
-        if (eventsErr) throw eventsErr;
-
-        // Remove invalid saved IDs
-        const ordered = eventIds
-          .map((id) => eventsData?.find((e) => e.id === id))
-          .filter((e): e is Event => !!e);
-
-        if (ordered.length < saved.length) {
-          console.warn("Cleaning up invalid saved IDs...");
-          const validIds = new Set(ordered.map((e) => e.id));
-          const invalid = saved.filter((s) => !validIds.has(s.event_id));
-          for (const bad of invalid) {
-            await supabase
-              .from('saved_events')
-              .delete()
-              .eq('user_id', user.id)
-              .eq('event_id', bad.event_id);
-          }
-        }
-
-        events = ordered;
-      }
-
-      console.log("Final events:", events);
+      if (error) throw error;
+      const events = (data ?? []).map((row: any) => row.events).filter(Boolean);
       setSavedEvents(events);
     } catch (err) {
       console.error('Error fetching saved events:', err);
@@ -151,7 +95,7 @@ export function SavedTab() {
         .eq('event_id', eventId);
       setSavedEvents((prev) => prev.filter((e) => e.id !== eventId));
     } catch (err) {
-      console.error("Failed to unsave event:", err);
+      console.error('Failed to remove saved event:', err);
     }
   };
 
@@ -193,7 +137,7 @@ export function SavedTab() {
             )}
 
             <div className="p-5 space-y-3">
-              <div className="flex items-start justify-between">
+              <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-lg font-bold text-white mb-1">
                     {event.title}
@@ -202,13 +146,10 @@ export function SavedTab() {
                     <p className="text-gray-400 text-sm">{event.organization}</p>
                   )}
                 </div>
-                <button
-                  onClick={() => removeSaved(event.id)}
-                  className="text-gray-500 hover:text-red-500 transition"
-                  title="Remove from saved"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <span className="flex items-center gap-1 text-purple-400 text-sm font-medium">
+                  <Bookmark className="w-4 h-4" />
+                  Saved
+                </span>
               </div>
 
               <p className="text-gray-300 text-sm line-clamp-2">
@@ -222,13 +163,23 @@ export function SavedTab() {
                 <span>{event.location ?? 'McGill University'}</span>
               </div>
 
-              <button
-                onClick={() => openModal(event)}
-                className="w-full py-2 rounded-xl font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white hover:opacity-90 transition-opacity"
-              >
-                <Eye className="w-4 h-4" />
-                View Details
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => openModal(event)}
+                  className="flex-1 py-2 rounded-xl font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] text-white hover:opacity-90 transition-opacity"
+                >
+                  <Eye className="w-4 h-4" />
+                  View Details
+                </button>
+
+                <button
+                  onClick={() => removeSaved(event.id)}
+                  className="px-3 rounded-xl flex items-center justify-center bg-[#1f1c2c] border border-gray-700 text-gray-400 hover:text-red-500 transition"
+                  title="Remove from saved"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         ))}
