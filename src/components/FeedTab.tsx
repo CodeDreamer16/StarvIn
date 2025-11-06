@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Calendar, MapPin, Award, Bookmark, Send, Eye } from 'lucide-react';
+import { Calendar, MapPin, Bookmark, Send, Eye } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { EventModal } from './EventModal';
@@ -79,20 +79,17 @@ export function FeedTab() {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const eventsPerPage = 10;
 
-  // --- Load user prefs + events ---
   useEffect(() => {
     loadEventsWithPreferences();
     loadUserData();
   }, [user]);
 
-  // smooth scroll to top on page change
   useEffect(() => {
     if (scrollRef.current)
       scrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     setVisibleCards(new Set());
   }, [currentPage]);
 
-  // fade-in animations
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
       (entries) => {
@@ -122,7 +119,6 @@ export function FeedTab() {
     setLoading(true);
     try {
       if (!user) return;
-
       const { data: prefs } = await supabase
         .from('user_preferences')
         .select('interest_name')
@@ -201,11 +197,26 @@ export function FeedTab() {
   return (
     <>
       <div ref={scrollRef} className="flex-1 overflow-y-auto pb-24 bg-[#0B0C10]">
-        <div className="px-6 pt-6 pb-4 sticky top-0 bg-[#0B0C10]/80 backdrop-blur z-10 border-b border-white/5">
-          <h1 className="text-3xl font-bold text-white">Discover</h1>
-          <p className="text-gray-400">Find events that match your interests</p>
+
+        {/* 🌈 Modern Discover Header */}
+        <div className="relative overflow-hidden px-6 pt-10 pb-12 bg-[#0B0C10]/80 backdrop-blur z-10">
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="absolute -top-32 -left-20 w-96 h-96 bg-gradient-to-r from-[#4C6EF5] to-[#7C3AED] opacity-20 blur-3xl rounded-full animate-blob" />
+            <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-r from-[#7C3AED] to-[#4C6EF5] opacity-10 blur-2xl rounded-full animate-blob animation-delay-2000" />
+          </div>
+
+          <div className="relative z-10 text-center">
+            <h1 className="text-5xl font-extrabold bg-gradient-to-r from-[#7C3AED] via-[#4C6EF5] to-[#7C3AED] bg-clip-text text-transparent animate-gradient-x mb-3">
+              Discover
+            </h1>
+            <p className="text-gray-400 text-lg animate-fadeIn delay-200">
+              Find events that match your interests
+            </p>
+            <div className="mt-6 h-[1px] w-48 mx-auto bg-gradient-to-r from-[#4C6EF5]/0 via-[#7C3AED]/50 to-[#4C6EF5]/0 rounded-full" />
+          </div>
         </div>
 
+        {/* Events Grid */}
         {loading ? (
           <div className="flex items-center justify-center h-48 text-white">Loading...</div>
         ) : events.length === 0 ? (
