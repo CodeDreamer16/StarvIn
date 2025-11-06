@@ -35,7 +35,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
   const cameraRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Load cached avatar per user for instant UI
+  // Load cached avatar for faster UI
   useEffect(() => {
     if (!user) return;
     const cachedAvatar = localStorage.getItem(`avatar_url_${user.id}`);
@@ -67,7 +67,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("full_name, avatar_url, banner_url")
+      .select("display_name, avatar_url, banner_url")
       .eq("id", user.id)
       .single();
 
@@ -76,14 +76,14 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
       return;
     }
 
-    // Create missing profile automatically
+    // Auto-create missing profile
     if (!data) {
       const { error: insertError } = await supabase
         .from("profiles")
-        .insert([{ id: user.id, full_name: user.email?.split("@")[0] }]);
+        .insert([{ id: user.id, display_name: user.email?.split("@")[0] }]);
       if (insertError)
         console.error("Error creating profile:", insertError.message);
-      setProfile({ full_name: user.email?.split("@")[0], avatar_url: null });
+      setProfile({ display_name: user.email?.split("@")[0], avatar_url: null });
       return;
     }
 
@@ -167,7 +167,6 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       if (contextSignOut) await contextSignOut();
-      // ⚠️ Do NOT clear avatar cache — keeps photo after re-login
       window.location.reload();
     } catch (err) {
       console.error("Sign out error:", err);
@@ -282,7 +281,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         </div>
 
         <h2 className="mt-3 text-2xl font-semibold">
-          {profile?.full_name || user?.email?.split("@")[0] || "User"}
+          {profile?.display_name || user?.email?.split("@")[0] || "User"}
         </h2>
         <p className="text-gray-400 text-sm">
           Signed in as {user?.email || "—"}
