@@ -35,40 +35,40 @@ export function SavedTab() {
       year: 'numeric',
     });
 
+  // ✅ Updated function: works even if Supabase relationship isn't recognized yet
   const fetchSavedEvents = async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Step 1: get the saved event IDs for the user
+      const { data: saved, error: savedErr } = await supabase
         .from('saved_events')
-        .select(
-          `
-          event_id,
-          events (
-            id,
-            title,
-            description,
-            event_type,
-            organization,
-            location,
-            date,
-            image_url,
-            prize,
-            tags,
-            link
-          )
-        `
-        )
+        .select('event_id')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (savedErr) throw savedErr;
 
-      const events = (data ?? [])
-        .map((row: any) => row.events)
-        .filter((e: Event) => !!e);
+      if (!saved || saved.length === 0) {
+        setSavedEvents([]);
+        return;
+      }
 
-      setSavedEvents(events);
+      // Step 2: fetch event details using the IDs
+      const eventIds = saved.map((s) => s.event_id);
+      const { data: events, error: eventsErr } = await supabase
+        .from('events')
+        .select('*')
+        .in('id', eventIds);
+
+      if (eventsErr) throw eventsErr;
+
+      // maintain same order as saved order
+      const orderedEvents = eventIds
+        .map((id) => events?.find((e) => e.id === id))
+        .filter((e): e is Event => !!e);
+
+      setSavedEvents(orderedEvents);
     } catch (err) {
       console.error('Error fetching saved events:', err);
       setSavedEvents([]);
@@ -161,7 +161,11 @@ export function SavedTab() {
         ))}
       </div>
 
-      <EventModal event={selectedEvent} isOpen={isModalOpen} onClose={closeModal} />
+      <EventModal
+        event={selectedEvent}
+        isOpen={isModalOpen}
+        onClose={closeModal}
+      />
     </>
   );
 }
