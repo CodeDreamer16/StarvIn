@@ -1,5 +1,5 @@
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, Settings, Bookmark, FileText, Star } from 'lucide-react';
+import { LogOut, Settings, FileText, Bookmark, Star } from 'lucide-react';
 
 interface ProfileTabProps {
   onEditPreferences: () => void;
@@ -54,27 +54,8 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         </div>
       </div>
 
-      {/* Actions Section */}
-      <div className="mt-10 px-6 space-y-4">
-        {[
-          { title: 'My Applications', icon: <FileText className="w-5 h-5 text-[#4C6EF5]" /> },
-          { title: 'Saved Events', icon: <Bookmark className="w-5 h-5 text-[#A78BFA]" /> },
-          { title: 'Edit Preferences', icon: <Settings className="w-5 h-5 text-[#9F7AEA]" />, onClick: onEditPreferences },
-        ].map(({ title, icon, onClick }, i) => (
-          <button
-            key={i}
-            onClick={onClick}
-            className="w-full flex justify-between items-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl py-4 px-5 transition-all group"
-          >
-            <div className="flex items-center gap-3">
-              {icon}
-              <span className="font-medium text-sm">{title}</span>
-            </div>
-            <span className="text-gray-400 group-hover:text-white transition">›</span>
-          </button>
-        ))}
-
-        {/* Sign Out */}
+      {/* Sign Out Section */}
+      <div className="mt-10 px-6">
         <button className="w-full bg-[#7f1d1d]/60 hover:bg-[#b91c1c]/80 text-red-300 hover:text-white font-medium rounded-2xl py-3 flex items-center justify-center gap-2 transition-all">
           <LogOut className="w-4 h-4" /> Sign Out
         </button>
