@@ -35,17 +35,17 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
   const cameraRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // 🚀 Load cached avatar first for instant UI
+  // Load cached avatar per user for instant UI
   useEffect(() => {
-    const cachedAvatar = localStorage.getItem("avatar_url");
+    if (!user) return;
+    const cachedAvatar = localStorage.getItem(`avatar_url_${user.id}`);
     if (cachedAvatar) {
       setProfile((prev: any) => ({ ...prev, avatar_url: cachedAvatar }));
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (user) {
-      // Always refetch to stay up to date
       loadProfile();
       loadNotifications();
     }
@@ -64,15 +64,32 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
 
   const loadProfile = async () => {
     if (!user) return;
-    const { data } = await supabase
+
+    const { data, error } = await supabase
       .from("profiles")
       .select("full_name, avatar_url, banner_url")
       .eq("id", user.id)
       .single();
 
-    if (data) {
-      setProfile(data);
-      if (data.avatar_url) localStorage.setItem("avatar_url", data.avatar_url);
+    if (error) {
+      console.error("Error loading profile:", error.message);
+      return;
+    }
+
+    // Create missing profile automatically
+    if (!data) {
+      const { error: insertError } = await supabase
+        .from("profiles")
+        .insert([{ id: user.id, full_name: user.email?.split("@")[0] }]);
+      if (insertError)
+        console.error("Error creating profile:", insertError.message);
+      setProfile({ full_name: user.email?.split("@")[0], avatar_url: null });
+      return;
+    }
+
+    setProfile(data);
+    if (data.avatar_url) {
+      localStorage.setItem(`avatar_url_${user.id}`, data.avatar_url);
     }
   };
 
@@ -112,9 +129,8 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         .eq("id", user.id);
       if (updateError) throw updateError;
 
-      // ✅ Save both in state and local cache
       setProfile((p: any) => ({ ...p, avatar_url: publicUrl }));
-      localStorage.setItem("avatar_url", publicUrl);
+      localStorage.setItem(`avatar_url_${user.id}`, publicUrl);
 
       setUploadSuccess(true);
       setTimeout(() => setUploadSuccess(false), 1200);
@@ -136,9 +152,8 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         .eq("id", user.id);
       if (error) throw error;
 
-      // ✅ Remove locally too
       setProfile((p: any) => ({ ...p, avatar_url: null }));
-      localStorage.removeItem("avatar_url");
+      localStorage.removeItem(`avatar_url_${user.id}`);
       setShowCameraMenu(false);
     } catch (err) {
       console.error(err);
@@ -152,7 +167,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       if (contextSignOut) await contextSignOut();
-      localStorage.removeItem("avatar_url");
+      // ⚠️ Do NOT clear avatar cache — keeps photo after re-login
       window.location.reload();
     } catch (err) {
       console.error("Sign out error:", err);
@@ -162,11 +177,14 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
     }
   };
 
-  const avatarSrc = profile?.avatar_url || localStorage.getItem("avatar_url") || DEFAULT_AVATAR;
+  const avatarSrc =
+    profile?.avatar_url ||
+    localStorage.getItem(`avatar_url_${user?.id}`) ||
+    DEFAULT_AVATAR;
 
   return (
     <div className="flex-1 overflow-y-auto bg-[#0B0C10] text-white pb-24">
-      {/* Banner */}
+      {/* 🖼️ Banner */}
       <div className="relative h-44 bg-gradient-to-r from-[#00BFFF] to-[#4C6EF5]">
         {profile?.banner_url && (
           <img
@@ -177,7 +195,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-[#0B0C10]/80" />
 
-        {/* Settings */}
+        {/* ⚙️ Settings */}
         <div className="absolute top-4 right-4" ref={settingsRef}>
           <button
             onClick={() => setShowSettings(!showSettings)}
@@ -201,7 +219,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         </div>
       </div>
 
-      {/* Profile Photo */}
+      {/* 👤 Profile Photo */}
       <div className="relative -mt-16 flex flex-col items-center">
         <div className="relative group" ref={cameraRef}>
           <img
@@ -271,7 +289,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         </p>
       </div>
 
-      {/* Edit Preferences */}
+      {/* ⚙️ Edit Preferences */}
       <div className="flex flex-col items-center gap-3 mt-4">
         <button
           onClick={onEditPreferences}
@@ -282,7 +300,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         </button>
       </div>
 
-      {/* Notifications */}
+      {/* 🔔 Notifications */}
       <div className="mt-8 flex justify-center gap-10 border-b border-white/10">
         <button className="pb-3 text-sm font-medium text-[#00BFFF] border-b-2 border-[#00BFFF]">
           <Bell className="inline w-4 h-4 mr-1" /> Notifications
@@ -301,7 +319,7 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
         ))}
       </div>
 
-      {/* Avatar Modal */}
+      {/* 🖼️ Avatar Modal */}
       {showAvatarModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
           <div className="relative bg-[#11121A]/90 rounded-3xl shadow-[0_0_20px_rgba(0,191,255,0.25)] p-4 w-72 h-72 flex items-center justify-center border border-white/5">
