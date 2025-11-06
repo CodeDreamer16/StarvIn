@@ -138,3 +138,41 @@
     animation: phone-entrance 1.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   }
 }
+
+/* -------------------------------------------------
+   🔹 Animated Banner Glow + Pulse Aura
+------------------------------------------------- */
+@keyframes bannerGlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.animate-banner-glow {
+  background-size: 200% 200%;
+  animation: bannerGlow 10s ease-in-out infinite;
+}
+
+@keyframes pulseGradient {
+  0%, 100% {
+    opacity: 0.2;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 0.6;
+    filter: brightness(1.2);
+  }
+}
+.animate-pulse-gradient {
+  background: radial-gradient(
+      circle at 30% 40%,
+      rgba(0, 191, 255, 0.4),
+      transparent 70%
+    ),
+    radial-gradient(
+      circle at 70% 60%,
+      rgba(76, 110, 245, 0.4),
+      transparent 70%
+    );
+  animation: pulseGradient 6s ease-in-out infinite;
+}
+
