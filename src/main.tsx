@@ -19,3 +19,12 @@ if ("serviceWorker" in navigator) {
       .catch((err) => console.error("❌ Service Worker registration failed:", err));
   });
 }
+
+// Register the service worker (only in production builds)
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/service-worker.js")
+      .catch((err) => console.error("SW registration failed:", err));
+  });
+}
