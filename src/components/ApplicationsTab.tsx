@@ -25,6 +25,7 @@ export function ApplicationsTab() {
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [fadeIn, setFadeIn] = useState(false);
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString("en-US", {
@@ -64,6 +65,8 @@ export function ApplicationsTab() {
       console.error("Error fetching applications:", err);
     } finally {
       setLoading(false);
+      // trigger smooth fade-in once content is loaded
+      setTimeout(() => setFadeIn(true), 100);
     }
   };
 
@@ -101,16 +104,25 @@ export function ApplicationsTab() {
 
   return (
     <>
-      <div className="px-4 pt-6 pb-24 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {applications.map((app) => {
+      <div
+        className={`px-4 pt-6 pb-24 grid grid-cols-1 sm:grid-cols-2 gap-4 transform transition-all duration-700 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+          fadeIn ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
+        }`}
+      >
+        {applications.map((app, idx) => {
           const event = app.events;
           return (
             <div
               key={app.id}
-              className="bg-gradient-to-br from-[#10121A] to-[#1A1C24] border border-gray-800 rounded-2xl overflow-hidden 
+              className={`bg-gradient-to-br from-[#10121A] to-[#1A1C24] border border-gray-800 rounded-2xl overflow-hidden 
               shadow-[0_4px_20px_rgba(0,0,0,0.3)]
-              transform transition-transform duration-200 ease-out hover:scale-[1.03] hover:shadow-[0_10px_35px_rgba(0,191,255,0.35)] hover:border-[#00BFFF]/40
-              will-change-transform will-change-[box-shadow]"
+              transform transition-all duration-600 ease-[cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.03] 
+              hover:shadow-[0_10px_35px_rgba(0,191,255,0.35)] hover:border-[#00BFFF]/40
+              will-change-transform will-change-[box-shadow]
+              ${fadeIn ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+              style={{
+                transitionDelay: `${idx * 60}ms`,
+              }}
             >
               {event?.image_url && (
                 <div
@@ -128,7 +140,9 @@ export function ApplicationsTab() {
                       {event?.title}
                     </h3>
                     {event?.organization && (
-                      <p className="text-gray-400 text-sm">{event.organization}</p>
+                      <p className="text-gray-400 text-sm">
+                        {event.organization}
+                      </p>
                     )}
                   </div>
 
@@ -169,7 +183,11 @@ export function ApplicationsTab() {
         })}
       </div>
 
-      <EventModal event={selectedEvent} isOpen={isModalOpen} onClose={closeModal} />
+      <EventModal
+        event={selectedEvent}
+        isOpen={isModalOpen}
+        onClose={closeModal}
+      />
     </>
   );
 }
