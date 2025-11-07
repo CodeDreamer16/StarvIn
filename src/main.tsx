@@ -28,3 +28,34 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
       .catch((err) => console.error("SW registration failed:", err));
   });
 }
+
+// --- Push Notification Setup ---
+async function registerPushNotifications() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    console.log("Push notifications not supported in this browser.");
+    return;
+  }
+
+  const registration = await navigator.serviceWorker.ready;
+
+  // Ask for permission
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") {
+    console.log("Notification permission denied.");
+    return;
+  }
+
+  // Subscribe user (temporary public key — will replace later with real VAPID key)
+  const sub = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: "<YOUR_VAPID_PUBLIC_KEY_BASE64>",
+  });
+
+  console.log("Push subscription created:", sub);
+
+  // TODO: send `sub` to your Supabase backend for storage
+}
+
+window.addEventListener("load", () => {
+  registerPushNotifications().catch(console.error);
+});
