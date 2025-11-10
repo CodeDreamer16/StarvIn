@@ -93,12 +93,21 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
     }
   };
 
-  const loadNotifications = async () => {
-    setNotifications([
-      { id: 1, title: "🎉 New event: TechX McGill 2025", date: "Nov 8" },
-      { id: 2, title: "Reminder: AI & Ethics Panel tomorrow", date: "Nov 7" },
-    ]);
-  };
+const loadNotifications = async () => {
+  if (!user) return;
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("id, title, body, url, created_at, read")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+    
+  if (error) {
+    console.error("Error fetching notifications:", error.message);
+    return;
+  }
+  
+  setNotifications(data || []);
+};
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
