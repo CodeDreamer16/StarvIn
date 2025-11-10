@@ -316,16 +316,29 @@ const loadNotifications = async () => {
       </div>
 
       <div className="px-6 mt-6 space-y-4">
-        {notifications.map((n) => (
-          <div
-            key={n.id}
-            className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition"
-          >
-            <p className="font-medium">{n.title}</p>
-            <p className="text-sm text-gray-400 mt-1">{n.date}</p>
-          </div>
-        ))}
+        {notifications.length === 0 ? (
+          <p className="text-center text-gray-400">No new notifications</p>
+        ) : (
+          notifications.map((n) => (
+            <div
+              key={n.id}
+              className={`border rounded-2xl p-4 transition ${
+                n.read
+                  ? "bg-white/5 border-white/10"
+                  : "bg-gradient-to-r from-[#00BFFF]/10 to-[#4C6EF5]/10 border-[#00BFFF]/30"
+              } hover:bg-white/10`}
+              onClick={() => n.url && window.open(n.url, "_blank")}
+            >
+              <p className="font-medium text-white">{n.title}</p>
+              {n.body && <p className="text-sm text-gray-400 mt-1">{n.body}</p>}
+              <p className="text-xs text-gray-500 mt-2">
+                {new Date(n.created_at).toLocaleString()}
+              </p>
+            </div>
+          ))
+        )}
       </div>
+
 
       {/* 🖼️ Avatar Modal */}
       {showAvatarModal && (
