@@ -44,26 +44,6 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
     }
   }, [user]);
 
-  // 🚀 TEST NOTIFICATION INSERT (temporary)
-  useEffect(() => {
-    const insertTestNotification = async () => {
-      if (!user) return;
-
-      const { error } = await supabase.from("notifications").insert([
-        {
-          user_id: user.id,
-          title: "🔥 Auto Event Alert: AI & Robotics Panel",
-          body: "Happening this Friday at McConnell Engineering!",
-          url: "https://involvement.mcgill.ca/event/301122",
-        },
-      ]);
-
-      if (error) console.error("Insert error:", error.message);
-      else console.log("✅ Test notification added!");
-    };
-
-    insertTestNotification();
-  }, [user]);
 
   // Load profile and notifications
   useEffect(() => {
