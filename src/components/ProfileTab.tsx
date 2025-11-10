@@ -44,6 +44,28 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
     }
   }, [user]);
 
+  // 🚀 TEST NOTIFICATION INSERT (temporary)
+  useEffect(() => {
+    const insertTestNotification = async () => {
+      if (!user) return;
+
+      const { error } = await supabase.from("notifications").insert([
+        {
+          user_id: user.id,
+          title: "🔥 Auto Event Alert: AI & Robotics Panel",
+          body: "Happening this Friday at McConnell Engineering!",
+          url: "https://involvement.mcgill.ca/event/301122",
+        },
+      ]);
+
+      if (error) console.error("Insert error:", error.message);
+      else console.log("✅ Test notification added!");
+    };
+
+    insertTestNotification();
+  }, [user]);
+
+  // Load profile and notifications
   useEffect(() => {
     if (user) {
       loadProfile();
@@ -93,21 +115,21 @@ export function ProfileTab({ onEditPreferences }: ProfileTabProps) {
     }
   };
 
-const loadNotifications = async () => {
-  if (!user) return;
-  const { data, error } = await supabase
-    .from("notifications")
-    .select("id, title, body, url, created_at, read")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
-    
-  if (error) {
-    console.error("Error fetching notifications:", error.message);
-    return;
-  }
-  
-  setNotifications(data || []);
-};
+  const loadNotifications = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("id, title, body, url, created_at, read")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching notifications:", error.message);
+      return;
+    }
+
+    setNotifications(data || []);
+  };
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
@@ -338,7 +360,6 @@ const loadNotifications = async () => {
           ))
         )}
       </div>
-
 
       {/* 🖼️ Avatar Modal */}
       {showAvatarModal && (
